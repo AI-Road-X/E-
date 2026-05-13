@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway Frontier - 火车站模拟经营</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            color: #eaeaea;
+            user-select: none;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #ui-layer > * { pointer-events: auto; }
+
+        /* ========== 顶部数据看板 ========== */
+        .top-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 260px;
+        }
+        .data-card {
+            background: rgba(22, 33, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.25);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .data-card:hover { border-color: rgba(52, 152, 219, 0.5); }
+        .data-label { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 1px; }
+        .data-value {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #3498DB;
+            transition: color 0.3s ease;
+        }
+        .data-value.money { color: #F1C40F; }
+        .data-value.success { color: #27AE60; }
+        .data-value.warning { color: #F39C12; }
+        .data-value.danger { color: #E74C3C; }
+        .data-value.flash { animation: valueFlash 0.4s ease; }
+        @keyframes valueFlash {
+            0% { transform: scale(1.3); text-shadow: 0 0 15px currentColor; }
+            100% { transform: scale(1); text-shadow: none; }
+        }
+
+        /* 时间天气栏 */
+        .time-weather-bar {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            background: rgba(22, 33, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.25);
+            border-radius: 30px;
+            padding: 8px 24px;
+        }
+        .time-display {
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            font-weight: bold;
+            color: #F1C40F;
+            letter-spacing: 2px;
+        }
+        .day-display { font-size: 13px; color: #8899aa; margin-left: 4px; }
+        .weather-icon { font-size: 22px; cursor: default; }
+        .speed-controls { display: flex; gap: 6px; margin-left: 8px; }
+        .speed-btn {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.4);
+            color: #8899aa;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .speed-btn:hover { background: rgba(52, 152, 219, 0.35); color: #eaeaea; }
+        .speed-btn.active { background: #3498DB; color: #fff; border-color: #3498DB; }
+        .pause-indicator {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(231, 76, 60, 0.85);
+            color: #fff;
+            padding: 6px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            display: none;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+        /* 左侧建设面板 */
+        .left-panel {
+            position: absolute;
+            top: 80px;
+            left: 12px;
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .panel-title {
+            font-size: 13px;
+            color: #8899aa;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 6px 10px;
+            border-bottom: 1px solid rgba(52, 152, 219, 0.2);
+            margin-bottom: 4px;
+        }
+        .build-btn {
+            background: rgba(22, 33, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.25);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #eaeaea;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.25s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .build-btn:hover:not(.locked) {
+            border-color: #3498DB;
+            background: rgba(52, 152, 219, 0.15);
+            transform: translateX(4px);
+        }
+        .build-btn.locked {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .build-btn.locked::after { content: '🔒'; font-size: 14px; }
+        .build-btn-name { font-size: 13px; font-weight: 500; }
+        .build-btn-cost { font-family: 'Courier New', monospace; font-size: 12px; color: #F1C40F; }
+
+        /* 底部进度条 */
+        .bottom-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            max-width: 90vw;
+            background: rgba(22, 33, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.25);
+            border-radius: 12px;
+            padding: 12px 18px;
+        }
+        .stage-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .stage-label { font-size: 12px; color: #8899aa; }
+        .stage-text { font-size: 14px; font-weight: bold; color: #3498DB; }
+        .progress-track {
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27AE60, #3498DB);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+
+        /* 弹窗通用样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #16213e;
+            border: 1px solid rgba(52, 152, 219, 0.35);
+            border-radius: 16px;
+            min-width: 520px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.92) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(52, 152, 219, 0.2);
+        }
+        .modal-title { font-size: 18px; font-weight: bold; color: #3498DB; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #8899aa;
+            font-size: 22px;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .modal-close:hover { color: #E74C3C; }
+        .modal-body { padding: 16px 20px; }
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid rgba(52, 152, 219, 0.15);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* 调度弹窗 - 时刻表 */
+        .schedule-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .schedule-table th {
+            background: rgba(52, 152, 219, 0.15);
+            padding: 8px 6px;
+            text-align: left;
+            color: #8899aa;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .schedule-table td {
+            padding: 7px 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: middle;
+        }
+        .schedule-table tr:hover td { background: rgba(52, 152, 219, 0.08); }
+        .schedule-table tr.conflict td { background: rgba(231, 76, 60, 0.15) !important; }
+        .schedule-input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            border-radius: 4px;
+            color: #eaeaea;
+            padding: 4px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 70px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .schedule-input:focus { border-color: #3498DB; }
+        .schedule-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            border-radius: 4px;
+            color: #eaeaea;
+            padding: 4px 6px;
+            font-size: 12px;
+            outline: none;
+            cursor: pointer;
+        }
+        .train-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .type-normal { background: rgba(149,165,166,0.3); color: #95a5a6; }
+        .type-fast { background: rgba(52,152,219,0.3); color: #3498DB; }
+        .type-bullet { background: rgba(155,89,182,0.3); color: #9B59B6; }
+        .type-hsr { background: rgba(231,76,60,0.3); color: #E74C3C; }
+        .btn-action {
+            padding: 7px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #3498DB; color: #fff; }
+        .btn-primary:hover { background: #2980B9; }
+        .btn-success { background: #27AE60; color: #fff; }
+        .btn-success:hover { background: #219A52; }
+        .btn-danger { background: #E74C3C; color: #fff; }
+        .btn-danger:hover { background: #C0392B; }
+        .btn-secondary { background: rgba(136,153,170,0.2); color: #8899aa; border: 1px solid rgba(136,153,170,0.3); }
+        .btn-secondary:hover { background: rgba(136,153,170,0.35); color: #eaeaea; }
+
+        /* 建设选择弹窗 */
+        .passage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .passage-card {
+            background: rgba(0,0,0,0.25);
+            border: 2px solid rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.25s;
+            text-align: center;
+        }
+        .passage-card:hover {
+            border-color: #3498DB;
+            background: rgba(52, 152, 219, 0.08);
+            transform: translateY(-3px);
+        }
+        .passage-card.selected { border-color: #27AE60; background: rgba(39, 174, 96, 0.1); }
+        .passage-icon { font-size: 32px; margin-bottom: 8px; }
+        .passage-name { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+        .passage-cost { font-family: 'Courier New', monospace; color: #F1C40F; font-size: 13px; }
+        .passage-capacity { font-size: 11px; color: #8899aa; margin-top: 4px; }
+
+        /* 通知系统 */
+        .notification-container {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .notification {
+            background: rgba(22, 33, 62, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(39, 174, 96, 0.5);
+            border-left: 4px solid #27AE60;
+            border-radius: 10px;
+            padding: 12px 24px;
+            color: #eaeaea;
+            font-size: 14px;
+            animation: notifIn 0.4s ease, notifOut 0.4s ease 3.6s forwards;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+        .notification.warning { border-left-color: #F39C12; }
+        .notification.error { border-left-color: #E74C3C; }
+        @keyframes notifIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes notifOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* 目标面板 */
+        .goals-panel {
+            position: absolute;
+            bottom: 80px;
+            left: 12px;
+            width: 220px;
+            background: rgba(22, 33, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.25);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .goal-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .goal-item:last-child { border-bottom: none; }
+        .goal-check {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .goal-check.done { background: #27AE60; border-color: #27AE60; color: #fff; }
+        .goal-text { color: #aaa; line-height: 1.4; }
+        .goal-item.completed .goal-text { color: #27AE60; }
+
+        /* 操作提示 */
+        .controls-hint {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            font-size: 11px;
+            color: rgba(136,153,170,0.5);
+            line-height: 1.8;
+        }
+        .controls-hint kbd {
+            background: rgba(52,152,219,0.15);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            color: #8899aa;
+        }
+
+        /* 樱花皮肤效果 */
+        body.sakura-theme .data-card { border-color: rgba(255,105,180,0.3); }
+        body.sakura-theme .build-btn { border-color: rgba(255,105,180,0.25); }
+        body.sakura-theme .build-btn:hover:not(.locked) { border-color: #FF69B4; background: rgba(255,105,180,0.1); }
+        body.sakura-theme .modal-box { border-color: rgba(255,105,180,0.35); }
+        body.sakura-theme .modal-title { color: #FF69B4; }
+        body.sakura-theme .data-value { color: #FF69B4; }
+        body.sakura-theme .data-value.money { color: #FFD700; }
+        body.sakura-theme .btn-primary { background: #FF69B4; }
+        body.sakura-theme .btn-primary:hover { background: #FF1493; }
+
+        /* 庆祝动画覆盖层 */
+        .celebration-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 300;
+            pointer-events: none;
+            display: none;
+        }
+        .celebration-overlay.active { display: block; }
+        .confetti {
+            position: absolute;
+            width: 10px; height: 10px;
+            animation: confettiFall 3s linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 900px) {
+            .left-panel { width: 160px; }
+            .goals-panel { display: none; }
+            .modal-box { min-width: 400px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <!-- 时间天气栏 -->
+        <div class="time-weather-bar">
+            <span class="time-display" id="game-time">06:00</span>
+            <span class="day-display" id="game-day">第1天</span>
+            <span class="weather-icon" id="weather-icon">☀️</span>
+            <div class="speed-controls">
+                <button class="speed-btn active" data-speed="1">×1</button>
+                <button class="speed-btn" data-speed="2">×2</button>
+                <button class="speed-btn" data-speed="4">×4</button>
+            </div>
+        </div>
+        <div class="pause-indicator" id="pause-indicator">⏸ 已暂停</div>
+
+        <!-- 右上角数据看板 -->
+        <div class="top-panel">
+            <div class="data-card">
+                <span class="data-label">💰 资金</span>
+                <span class="data-value money" id="val-money">¥2,000</span>
+            </div>
+            <div class="data-card">
+                <span class="data-label">📈 总收入</span>
+                <span class="data-value success" id="val-total-income">¥0</span>
+            </div>
+            <div class="data-card">
+                <span class="data-label">👥 客流/分</span>
+                <span class="data-value" id="val-passengers">0</span>
+            </div>
+            <div class="data-card">
+                <span class="data-label">⏱ 准点率</span>
+                <span class="data-value warning" id="val-punctuality">100%</span>
+            </div>
+            <div class="data-card">
+                <span class="data-label">📊 信誉等级</span>
+                <span class="data-value" id="val-reputation">S</span>
+            </div>
+            <div class="data-card">
+                <span class="data-label">🚂 列车数</span>
+                <span class="data-value" id="val-trains">0/20</span>
+            </div>
+        </div>
+
+        <!-- 左侧建设面板 -->
+        <div class="left-panel">
+            <div class="panel-title">🚉 站台建设</div>
+            <button class="build-btn" data-platform="1" onclick="Game.openSchedule(1)">
+                <span class="build-btn-name">1号站台</span><span class="build-btn-cost">已启用</span>
+            </button>
+            <button class="build-btn locked" data-platform="2" id="btn-plat-2">
+                <span class="build-btn-name">2号站台</span><span class="build-btn-cost">需¥5,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="3" id="btn-plat-3">
+                <span class="build-btn-name">3号站台</span><span class="build-btn-cost">需¥20,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="4" id="btn-plat-4">
+                <span class="build-btn-name">4号站台</span><span class="build-btn-cost">需¥20,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="5" id="btn-plat-5">
+                <span class="build-btn-name">5号站台</span><span class="build-btn-cost">需¥80,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="6" id="btn-plat-6">
+                <span class="build-btn-name">6号站台</span><span class="build-btn-cost">需¥80,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="7" id="btn-plat-7">
+                <span class="build-btn-name">7号站台</span><span class="build-btn-cost">需¥250,000</span>
+            </button>
+            <button class="build-btn locked" data-platform="8" id="btn-plat-8">
+                <span class="build-btn-name">8号站台</span><span class="build-btn-cost">需¥250,000</span>
+            </button>
+            <div style="margin-top:8px"></div>
+            <div class="panel-title">🚶 人行通道</div>
+            <button class="build-btn" onclick="Game.openPassageBuild()">
+                <span class="build-btn-name">建设通道</span><span class="build-btn-cost">➕</span>
+            </button>
+        </div>
+
+        <!-- 目标面板 -->
+        <div class="goals-panel">
+            <div class="panel-title">🎯 阶段目标</div>
+            <div class="goal-item" id="goal-1">
+                <div class="goal-check" id="goal-check-1">1</div>
+                <div class="goal-text">日客流达500 → 自动售票机</div>
+            </div>
+            <div class="goal-item" id="goal-2">
+                <div class="goal-check" id="goal-check-2">2</div>
+                <div class="goal-text">3列火车准点进站 → 免费动车</div>
+            </div>
+            <div class="goal-item" id="goal-3">
+                <div class="goal-check" id="goal-check-3">3</div>
+                <div class="goal-text">总资金¥100,000 → 地铁接驳</div>
+            </div>
+            <div class="goal-item" id="goal-4">
+                <div class="goal-check" id="goal-check-4">4</div>
+                <div class="goal-text">日均客流5000+准点率92%×7天 → 奖杯</div>
+            </div>
+            <div class="goal-item" id="goal-5">
+                <div class="goal-check" id="goal-check-5">5</div>
+                <div class="goal-text">≥8站台+全通道类型 → 广州南站</div>
+            </div>
+        </div>
+
+        <!-- 底部进度条 -->
+        <div class="bottom-bar">
+            <div class="stage-info">
+                <span class="stage-label">当前阶段</span>
+                <span class="stage-text" id="stage-text">阶段 1/6 — 小站起步</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="stage-progress" style="width: 5%"></div>
+            </div>
+        </div>
+
+        <!-- 操作提示 -->
+        <div class="controls-hint">
+            <kbd>右键拖拽</kbd>旋转 · <kbd>滚轮</kbd>缩放 · <kbd>WASD</kbd>微调<br>
+            <kbd>点击站台</kbd>调度 · <kbd>空格</kbd>暂停 · <kbd>123</kbd>倍速
+        </div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div class="notification-container" id="notif-container"></div>
+
+    <!-- 调度弹窗 -->
+    <div class="modal-overlay" id="modal-schedule">
+        <div class="modal-box" style="min-width:650px;">
+            <div class="modal-header">
+                <span class="modal-title" id="schedule-modal-title">🚂 1号站台调度</span>
+                <button class="modal-close" onclick="Game.closeModal('modal-schedule')">✕</button>
+            </div>
+            <div class="modal-body">
+                <table class="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>列车ID</th>
+                            <th>车型</th>
+                            <th>到站时间</th>
+                            <th>发车时间</th>
+                            <th>停靠站台</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-tbody"></tbody>
+                </table>
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn-action btn-primary" onclick="Game.addTrain()">➕ 添加列车</button>
+                    <button class="btn-action btn-secondary" onclick="Game.autoGenerate()">🎲 自动生成时刻表</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action btn-secondary" onclick="Game.closeModal('modal-schedule')">关闭</button>
+                <button class="btn-action btn-success" onclick="Game.saveSchedule()">💾 保存时刻表</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 建设通道弹窗 -->
+    <div class="modal-overlay" id="modal-passage">
+        <div class="modal-box" style="min-width:480px;">
+            <div class="modal-header">
+                <span class="modal-title">🚶 选择人行通道类型</span>
+                <button class="modal-close" onclick="Game.closeModal('modal-passage')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="passage-grid" id="passage-grid"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action btn-secondary" onclick="Game.closeModal('modal-passage')">取消</button>
+                <button class="btn-action btn-primary" id="btn-build-passage" disabled onclick="Game.buildSelectedPassage()" style="opacity:0.5;">确认建造</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 庆祝动画层 -->
+    <div class="celebration-overlay" id="celebration-overlay"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script>
+// ============================================================
+// Railway Frontier - 火车站模拟经营游戏
+// Complete Single-File Implementation
+// ============================================================
+
+(function() {
+'use strict';
+
+// ==================== 配置常量 ====================
+const CONFIG = {
+    TIME_SCALE: 60,
+    DAY_START: 6,
+    DAY_END: 20,
+    INITIAL_MONEY: 2000,
+    MAX_TRAINS: 20,
+    CONFLICT_MINUTES: 3,
+    LATE_PENALTY_2MIN: 0.1,
+    LATE_PENALTY_5MIN: 0.3,
+    UI_UPDATE_INTERVAL: 500,
+    PASSENGER_MERGE_THRESHOLD: 50,
+    PLATFORM_SPACING: 12,
+    TRACK_LENGTH: 60,
+};
+
+const STAGE_REQUIREMENTS = [
+    { platforms: 1, income: 0, label: '小站起步' },
+    { platforms: 2, income: 5000, label: '区域枢纽' },
+    { platforms: 4, income: 20000, label: '市级车站' },
+    { platforms: 6, income: 80000, label: '交通中心' },
+    { platforms: 8, income: 250000, label: '超级车站' },
+    { platforms: 8, income: 999999999, punctuality: 98, days: 7, label: '传奇车站', sakura: true },
+];
+
+const TRAIN_TYPES = [
+    { id: 'normal', name: '普速', price: 10, speed: 1, color: 0x95a5a6 },
+    { id: 'fast', name: '快速', price: 20, speed: 1.5, color: 0x3498db },
+    { id: 'bullet', name: '动车', price: 35, speed: 2.5, color: 0x9b59b6 },
+    { id: 'hsr', name: '高铁', price: 50, speed: 3.5, color: 0xe74c3c },
+];
+
+const PASSAGE_TYPES = [
+    { id: 'zebra', name: '地面斑马线', cost: 500, capacity: 20, icon: '🚦', desc: '干扰列车' },
+    { id: 'bridge', name: '简易天桥', cost: 2000, capacity: 60, icon: '🌉', desc: '无干扰' },
+    { id: 'tunnel', name: '地下通道', cost: 5000, capacity: 100, icon: '🚇', desc: '可连接地铁' },
+    { id: 'walkway', name: '自动步道', cost: 15000, capacity: 250, icon: '↔️', desc: '维护费5/分' },
+    { id: 'hall', name: '商业大厅', cost: 40000, capacity: 800, icon: '🏬', desc: '收入+30%' },
+];
+
+const WEATHER_TYPES = [
+    { id: 'sunny', name: '晴天', icon: '☀️', factor: 1.0, color: 0x87CEEB },
+    { id: 'rainy', name: '小雨', icon: '🌧️', factor: 0.8, color: 0x556677 },
+    { id: 'storm', name: '暴雨', icon: '⛈️', factor: 0.5, color: 0x334455 },
+    { id: 'snow', name: '雪天', icon: '❄️', factor: 0.6, color: 0xCDDCDC },
+];
+
+// ==================== 游戏状态 ====================
+const GameState = {
+    money: CONFIG.INITIAL_MONEY,
+    totalIncome: 0,
+    totalIncomePerHour: 0,
+    currentPassengers: 0,
+    reputation: 100,
+    punctualityRate: 100,
+    onTimeCount: 0,
+    lateCount: 0,
+    day: 1,
+    timeMinutes: 360,
+    speedMultiplier: 1,
+    paused: false,
+    currentStage: 1,
+    unlockedPlatforms: [1],
+    builtPassages: [],
+    trains: [],
+    trainIdCounter: 1,
+    weather: WEATHER_TYPES[0],
+    weatherTimer: 0,
+    sakuraSkin: false,
+    goalsCompleted: {},
+    consecutivePunctualDays: 0,
+    dailyPunctualCheck: false,
+    simultaneousOnTime: 0,
+    lastSimultaneousDay: 0,
+    hasAutoTicket: false,
+    hasFreeBullet: false,
+    hasMetroLink: false,
+    hasTrophy: false,
+    hasGuangzhouTitle: false,
+    selectedPlatformForSchedule: 1,
+    selectedPassageType: null,
+    passengerParticles: [],
+    trainMeshes: {},
+    platformMeshes: {},
+    passageMeshes: {},
+    weatherParticles: null,
+    scene: null,
+    camera: null,
+    renderer: null,
+    orbitControls: null,
+    raycaster: null,
+    mouse: null,
+    clock: null,
+    uiUpdateTimer: 0,
+};
+
+// ==================== 工具函数 ====================
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function formatMoney(n) { return '¥' + n.toLocaleString('zh-CN'); }
+function formatNum(n) { return n.toLocaleString('zh-CN'); }
+function padZero(n) { return String(n).padStart(2, '0'); }
+function minutesToHHMM(m) {
+    const h = Math.floor(m / 60) % 24;
+    const mi = m % 60;
+    return `${padZero(h)}:${padZero(mi)}`;
+}
+function hhmmToMinutes(hhmm) {
+    if (typeof hhmm === 'number') return hhmm;
+    const parts = String(hhmm).split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+}
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randomPick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function getCityFactor(totalIncome) {
+    if (totalIncome >= 300000) return 5.0;
+    if (totalIncome >= 150000) return 3.5;
+    if (totalIncome >= 80000) return 2.5;
+    if (totalIncome >= 20000) return 1.5;
+    if (totalIncome >= 5000) return 1.0;
+    return 0.5;
+}
+
+function getReputationFactor(rep) {
+    return clamp(rep / 100, 0.3, 1.0);
+}
+
+function getDayNightFactor(minutes) {
+    const h = Math.floor((minutes % 1440) / 60);
+    if (h >= CONFIG.DAY_START && h < CONFIG.DAY_END) return 1.2;
+    return 0.5;
+}
+
+function getReputationGrade(rep) {
+    if (rep >= 95) return 'S';
+    if (rep >= 85) return 'A';
+    if (rep >= 70) return 'B';
+    if (rep >= 50) return 'C';
+    return 'D';
+}
+
+// ==================== 通知系统 ====================
+function showNotification(text, type = 'success') {
+    const container = document.getElementById('notif-container');
+    const notif = document.createElement('div');
+    notif.className = `notification ${type}`;
+    notif.textContent = text;
+    container.appendChild(notif);
+    setTimeout(() => { if (notif.parentNode) notif.remove(); }, 4200);
+}
+
+function flashValue(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 400);
+}
+
+// ==================== Three.js 场景初始化 ====================
+function initScene() {
+    const container = document.getElementById('canvas-container');
+
+    GameState.scene = new THREE.Scene();
+    GameState.scene.background = new THREE.Color(0x1a1a2e);
+
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 120;
+    GameState.camera = new THREE.OrthographicCamera(
+        -frustumSize * aspect / 2, frustumSize * aspect / 2,
+        frustumSize / 2, -frustumSize / 2,
+        0.1, 2000
+    );
+    GameState.camera.position.set(80, 80, 80);
+    GameState.camera.lookAt(0, 0, 0);
+
+    GameState.renderer = new THREE.WebGLRenderer({ antialias: true });
+    GameState.renderer.setSize(window.innerWidth, window.innerHeight);
+    GameState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    GameState.renderer.shadowMap.enabled = true;
+    GameState.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(GameState.renderer.domElement);
+
+    // 灯光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    GameState.scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+    dirLight.position.set(50, 100, 50);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 500;
+    dirLight.shadow.camera.left = -100;
+    dirLight.shadow.camera.right = 100;
+    dirLight.shadow.camera.top = 100;
+    dirLight.shadow.camera.bottom = -100;
+    GameState.scene.add(dirLight);
+
+    // 半球光补充
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d1e, 0.35);
+    GameState.scene.add(hemiLight);
+
+    // 地面网格
+    const gridHelper = new THREE.GridHelper(200, 40, 0x333366, 0x222244);
+    GameState.scene.add(gridHelper);
+
+    // 地面平面（接收阴影）
+    const groundGeo = new THREE.PlaneGeometry(200, 200);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x1a1a2e, transparent: true, opacity: 0.95 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.01;
+    ground.receiveShadow = true;
+    GameState.scene.add(ground);
+
+    // 坐标轴辅助
+    const axesHelper = new THREE.AxesHelper(30);
+    axesHelper.position.set(-90, 0.05, -90);
+    GameState.scene.add(axesHelper);
+
+    // 射线检测
+    GameState.raycaster = new THREE.Raycaster();
+    GameState.mouse = new THREE.Vector2();
+    GameState.clock = new THREE.Clock();
+
+    // 自定义轨道控制（正交相机）
+    initOrbitControls();
+
+    // 创建初始场景对象
+    buildAllPlatforms();
+    buildStationBuilding();
+    initWeatherParticles();
+
+    // 事件监听
+    setupEventListeners();
+}
+
+// ==================== 自定义轨道控制 ====================
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let cameraTheta = Math.PI / 4;
+let cameraPhi = Math.PI / 4;
+let cameraDistance = 140;
+let cameraTarget = new THREE.Vector3(0, 0, 0);
+let cameraPanX = 0, cameraPanZ = 0;
+
+function initOrbitControls() {
+    updateCameraPosition();
+
+    const canvas = GameState.renderer.domElement;
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('click', onClick);
+}
+
+function onMouseDown(e) {
+    if (e.button === 2) {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+    }
+}
+
+function onMouseMove(e) {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    cameraTheta -= dx * 0.008;
+    cameraPhi = clamp(cameraPhi - dy * 0.008, 0.15, Math.PI / 2 - 0.05);
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    updateCameraPosition();
+}
+
+function onMouseUp() { isDragging = false; }
+
+function onWheel(e) {
+    e.preventDefault();
+    cameraDistance = clamp(cameraDistance + e.deltaY * 0.15, 40, 350);
+    updateCameraPosition();
+}
+
+function updateCameraPosition() {
+    const x = cameraDistance * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+    const y = cameraDistance * Math.cos(cameraPhi);
+    const z = cameraDistance * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+    GameState.camera.position.set(x + cameraPanX, y, z + cameraPanZ);
+    GameState.camera.lookAt(cameraTarget.x + cameraPanX, cameraTarget.y, cameraTarget.z + cameraPanZ);
+}
+
+function panCamera(dx, dz) {
+    const panSpeed = 2;
+    const forward = new THREE.Vector3(
+        -Math.sin(cameraTheta),
+        0,
+        -Math.cos(cameraTheta)
+    );
+    const right = new THREE.Vector3(
+        Math.cos(cameraTheta),
+        0,
+        -Math.sin(cameraTheta)
+    );
+    cameraPanX += (right.x * dx + forward.x * (-dz)) * panSpeed;
+    cameraPanZ += (right.z * dx + forward.z * (-dz)) * panSpeed;
+    updateCameraPosition();
+}
+
+// ==================== 站台构建 ====================
+function buildAllPlatforms() {
+    for (let i = 1; i <= 8; i++) {
+        const mesh = createPlatformMesh(i);
+        mesh.visible = (i <= GameState.unlockedPlatforms.length);
+        mesh.userData = { type: 'platform', id: i };
+        GameState.platformMeshes[i] = mesh;
+        GameState.scene.add(mesh);
+    }
+}
+
+function createPlatformMesh(platformId) {
+    const group = new THREE.Group();
+    const zPos = (platformId - 1) * CONFIG.PLATFORM_SPACING - (CONFIG.PLATFORM_SPACING * 3.5);
+
+    // 到发线（铁轨）
+    const trackGeo = new THREE.BoxGeometry(CONFIG.TRACK_LENGTH, 0.3, 2.5);
+    const trackMat = new THREE.MeshLambertMaterial({ color: 0x444444 });
+    const track = new THREE.Mesh(trackGeo, trackMat);
+    track.position.set(0, 0.15, zPos - 2);
+    track.castShadow = true;
+    track.receiveShadow = true;
+    group.add(track);
+
+    // 铁轨枕木纹理线
+    const railGeo = new THREE.BoxGeometry(CONFIG.TRACK_LENGTH, 0.15, 0.15);
+    const railMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+    const rail1 = new THREE.Mesh(railGeo, railMat);
+    rail1.position.set(0, 0.35, zPos - 2.8);
+    group.add(rail1);
+    const rail2 = new THREE.Mesh(railGeo, railMat);
+    rail2.position.set(0, 0.35, zPos - 1.2);
+    group.add(rail2);
+
+    // 站台主体
+    const platGeo = new THREE.BoxGeometry(CONFIG.TRACK_LENGTH - 4, 1.2, 5);
+    const platColor = GameState.sakuraSkin ? 0xFFE4E8 : 0xcc9966;
+    const platMat = new THREE.MeshLambertMaterial({ color: platColor });
+    const platform = new THREE.Mesh(platGeo, platMat);
+    platform.position.set(0, 0.6, zPos + 2);
+    platform.castShadow = true;
+    platform.receiveShadow = true;
+    group.add(platform);
+
+    // 黄色安全线
+    const yellowLineGeo = new THREE.BoxGeometry(CONFIG.TRACK_LENGTH - 6, 0.05, 0.3);
+    const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xF1C40F });
+    const yellowLine = new THREE.Mesh(yellowLineGeo, yellowLineMat);
+    yellowLine.position.set(0, 1.23, zPos + 0.1);
+    group.add(yellowLine);
+
+    // 顶棚
+    const roofGeo = new THREE.BoxGeometry(CONFIG.TRACK_LENGTH - 2, 0.3, 7);
+    const roofMat = new THREE.MeshLambertMaterial({ 
+        color: GameState.sakuraSkin ? 0xFFB6C1 : 0x2980b9,
+        transparent: true, opacity: 0.9 
+    });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.set(0, 4.5, zPos + 2);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // 顶棚支柱
+    for (let px = -24; px <= 24; px += 12) {
+        const pillarGeo = new THREE.CylinderGeometry(0.2, 0.25, 3.5, 8);
+        const pillarMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(px, 2.65, zPos + 2);
+        pillar.castShadow = true;
+        group.add(pillar);
+    }
+
+    // 站台编号牌
+    const signGeo = new THREE.BoxGeometry(3, 1.2, 0.15);
+    const signMat = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
+    const sign = new THREE.Mesh(signGeo, signMat);
+    sign.position.set(CONFIG.TRACK_LENGTH / 2 - 4, 3, zPos + 4.5);
+    group.add(sign);
+
+    // 站台名标签用精灵或简单几何体表示
+    group.position.y = 0;
+    group.name = `platform_${platformId}`;
+
+    return group;
+}
+
+function unlockPlatform(platformId) {
+    if (GameState.unlockedPlatforms.includes(platformId)) return;
+    GameState.unlockedPlatforms.push(platformId);
+    GameState.unlockedPlatforms.sort((a, b) => a - b);
+    if (GameState.platformMeshes[platformId]) {
+        GameState.platformMeshes[platformId].visible = true;
+    }
+    const btn = document.getElementById(`btn-plat-${platformId}`);
+    if (btn) {
+        btn.classList.remove('locked');
+        btn.querySelector('.build-btn-cost').textContent = '已启用';
+        btn.onclick = () => Game.openSchedule(platformId);
+    }
+    checkStageProgress();
+    showNotification(`🎉 ${platformId}号站台已解锁！`, 'success');
+}
+
+// ==================== 主站房建筑 ====================
+function buildStationBuilding() {
+    const buildingGroup = new THREE.Group();
+
+    // 主楼体
+    const mainGeo = new THREE.BoxGeometry(20, 12, 15);
+    const mainColor = GameState.sakuraSkin ? 0xFFE4E8 : 0xe8dcc8;
+    const mainMat = new THREE.MeshLambertMaterial({ color: mainColor });
+    const mainBuilding = new THREE.Mesh(mainGeo, mainMat);
+    mainBuilding.position.set(-CONFIG.TRACK_LENGTH / 2 - 15, 6, 0);
+    mainBuilding.castShadow = true;
+    mainBuilding.receiveShadow = true;
+    buildingGroup.add(mainBuilding);
+
+    // 屋顶
+    const roofGeo = new THREE.BoxGeometry(24, 1, 19);
+    const roofMat = new THREE.MeshLambertMaterial({ color: GameState.sakuraSkin ? 0xFF69B4 : 0xc0392b });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.set(-CONFIG.TRACK_LENGTH / 2 - 15, 12.5, 0);
+    roof.castShadow = true;
+    buildingGroup.add(roof);
+
+    // 大门
+    const doorGeo = new THREE.BoxGeometry(5, 7, 1);
+    const doorMat = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
+    const door = new THREE.Mesh(doorGeo, doorMat);
+    door.position.set(-CONFIG.TRACK_LENGTH / 2 - 15, 3.5, 7.6);
+    buildingGroup.add(door);
+
+    // 钟楼
+    const towerGeo = new THREE.BoxGeometry(5, 8, 5);
+    const towerMat = new THREE.MeshLambertMaterial({ color: 0xbdc3c7 });
+    const tower = new THREE.Mesh(towerGeo, towerMat);
+    tower.position.set(-CONFIG.TRACK_LENGTH / 2 - 15, 20, 0);
+    tower.castShadow = true;
+    buildingGroup.add(tower);
+
+    // 钟面
+    const clockGeo = new THREE.CylinderGeometry(1.8, 1.8, 0.3, 24);
+    const clockMat = new THREE.MeshLambertMaterial({ color: 0xfdfefe });
+    const clockFace = new THREE.Mesh(clockGeo, clockMat);
+    clockFace.rotation.x = Math.PI / 2;
+    clockFace.position.set(-CONFIG.TRACK_LENGTH / 2 - 15, 21.5, 2.7);
+    buildingGroup.add(clockFace);
+
+    GameState.scene.add(buildingGroup);
+}
+
+// ==================== 天气粒子系统 ====================
+function initWeatherParticles() {
+    const count = 800;
+    const positions = new Float32Array(count * 3);
+    const velocities = [];
+
+    for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 180;
+        positions[i * 3 + 1] = Math.random() * 80;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 180;
+        velocities.push({
+            y: -(0.15 + Math.random() * 0.3),
+            x: (Math.random() - 0.5) * 0.05,
+            z: (Math.random() - 0.5) * 0.02
+        });
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    let material;
+    if (GameState.weather.id === 'snow') {
+        material = new THREE.PointsMaterial({
+            size: 0.5,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.85,
+            sizeAttenuation: true,
+        });
+    } else {
+        material = new THREE.PointsMaterial({
+            size: 0.2,
+            color: 0xaaccff,
+            transparent: true,
+            opacity: 0.6,
+            sizeAttenuation: true,
+        });
+    }
+
+    const particles = new THREE.Points(geometry, material);
+    particles.visible = false;
+    particles.userData = { velocities, count };
+    GameState.weatherParticles = particles;
+    GameState.scene.add(particles);
+}
+
+function updateWeatherParticles(delta) {
+    const wp = GameState.weatherParticles;
+    if (!wp || !wp.visible) return;
+
+    const pos = wp.geometry.attributes.position.array;
+    const vel = wp.userData.velocities;
+
+    for (let i = 0; i < wp.userData.count; i++) {
+        pos[i * 3] += vel[i].x;
+        pos[i * 3 + 1] += vel[i].y;
+        pos[i * 3 + 2] += vel[i].z;
+
+        if (pos[i * 3 + 1] < 0) {
+            pos[i * 3] = (Math.random() - 0.5) * 180;
+            pos[i * 3 + 1] = 70 + Math.random() * 15;
+            pos[i * 3 + 2] = (Math.random() - 0.5) * 180;
+        }
+    }
+    wp.geometry.attributes.position.needsUpdate = true;
+}
+
+function setWeather(weatherType) {
+    GameState.weather = weatherType;
+    document.getElementById('weather-icon').textContent = weatherType.icon;
+
+    const wp = GameState.weatherParticles;
+    if (wp) {
+        if (weatherType.id === 'sunny') {
+            wp.visible = false;
+        } else {
+            wp.visible = true;
+            if (weatherType.id === 'snow') {
+                wp.material.size = 0.5;
+                wp.material.color.setHex(0xffffff);
+                wp.material.opacity = 0.85;
+            } else {
+                wp.material.size = 0.2;
+                wp.material.color.setHex(0xaaccff);
+                wp.material.opacity = 0.55;
+            }
+        }
+    }
+
+    // 更新天空颜色
+    GameState.scene.background = new THREE.Color(weatherType.color);
+}
+
+function changeWeatherRandomly() {
+    const weights = [0.4, 0.25, 0.1, 0.15];
+    let r = Math.random(), sum = 0;
+    for (let i = 0; i < weights.length; i++) {
+        sum += weights[i];
+        if (r <= sum) { setWeather(WEATHER_TYPES[i]); return; }
+    }
+    setWeather(WEATHER_TYPES[0]);
+}
+
+// ==================== 列车系统 ====================
+function createTrainMesh(trainData) {
+    const group = new THREE.Group();
+    const tType = TRAIN_TYPES.find(t => t.id === trainData.type) || TRAIN_TYPES[0];
+
+    // 车头（锥形）
+    const noseGeo = new THREE.ConeGeometry(1.2, 4, 8);
+    noseGeo.rotateZ(-Math.PI / 2);
+    const noseMat = new THREE.MeshLambertMaterial({ color: tType.color });
+    const nose = new THREE.Mesh(noseGeo, noseMat);
+    nose.position.set(2.5, 1.5, 0);
+    nose.castShadow = true;
+    group.add(nose);
+
+    // 车头车厢
+    const headGeo = new THREE.BoxGeometry(6, 2.8, 2.6);
+    const headMat = new THREE.MeshLambertMaterial({ color: tType.color });
+    const headCar = new THREE.Mesh(headGeo, headMat);
+    headCar.position.set(-0.5, 1.5, 0);
+    headCar.castShadow = true;
+    group.add(headCar);
+
+    // 车窗
+    const winGeo = new THREE.BoxGeometry(4, 1, 0.1);
+    const winMat = new THREE.MeshLambertMaterial({ color: 0xaaddff });
+    const windows = new THREE.Mesh(winGeo, winMat);
+    windows.position.set(-0.5, 2.2, 1.31);
+    group.add(windows);
+
+    // 后续车厢
+    const carCount = tType.id === 'hsr' ? 4 : tType.id === 'bullet' ? 3 : 2;
+    for (let c = 0; c < carCount; c++) {
+        const carGeo = new THREE.BoxGeometry(5, 2.6, 2.5);
+        const car = new THREE.Mesh(carGeo, headMat);
+        car.position.set(-4 - c * 5.5, 1.4, 0);
+        car.castShadow = true;
+        group.add(car);
+
+        const carWin = new THREE.Mesh(winGeo, winMat);
+        carWin.position.set(-4 - c * 5.5, 2.1, 1.26);
+        group.add(carWin);
+    }
+
+    group.userData = { trainId: trainData.id, type: trainData.type };
+    group.visible = false;
+    group.name = `train_${trainData.id}`;
+
+    GameState.scene.add(group);
+    return group;
+}
+
+function addTrainToSchedule(platformId, type, arrivalMin, departMin) {
+    if (GameState.trains.length >= CONFIG.MAX_TRAINS) {
+        showNotification('已达最大列车数量限制(20列)', 'error');
+        return null;
+    }
+
+    const train = {
+        id: GameState.trainIdCounter++,
+        type: type,
+        platform: platformId,
+        arrivalTime: arrivalMin,
+        departTime: departMin,
+        status: 'scheduled',
+        actualArrival: null,
+        actualDepart: null,
+        delayMinutes: 0,
+        revenue: 0,
+    };
+
+    // 冲突检测
+    if (checkScheduleConflict(train)) {
+        showNotification(`⚠️ 与现有列车时刻冲突！间隔不足${CONFIG.CONFLICT_MINUTES}分钟`, 'warning');
+        return null;
+    }
+
+    GameState.trains.push(train);
+    const mesh = createTrainMesh(train);
+    GameState.trainMeshes[train.id] = mesh;
+
+    return train;
+}
+
+function checkScheduleConflict(newTrain) {
+    for (const t of GameState.trains) {
+        if (t.platform !== newTrain.platform) continue;
+        const gap1 = Math.abs(t.arrivalTime - newTrain.arrivalTime);
+        const gap2 = Math.abs(t.departTime - newTrain.arrivalTime);
+        const gap3 = Math.abs(t.arrivalTime - newTrain.departTime);
+        const gap4 = Math.abs(t.departTime - newTrain.departTime);
+        const minGap = Math.min(gap1, gap2, gap3, gap4);
+        if (minGap < CONFIG.CONFLICT_MINUTES && minGap > 0) return true;
+        // also check wrap-around
+        if (1440 - Math.min(gap1, gap2, gap3, gap4) < CONFIG.CONFLICT_MINUTES) return true;
+    }
+    return false;
+}
+
+function autoGenerateSchedule() {
+    const platforms = GameState.unlockedPlatforms;
+    const types = ['normal', 'normal', 'fast', 'fast', 'fast', 'bullet', 'hsr'];
+
+    for (let i = 0; i < 8 && GameState.trains.length < CONFIG.MAX_TRAINS; i++) {
+        const plat = randomPick(platforms);
+        const type = randomPick(types);
+        const startH = randomInt(6, 20);
+        const startM = randomInt(0, 59);
+        const arrival = startH * 60 + startM;
+        const stayDuration = type === 'hsr' ? randomInt(3, 6) : type === 'bullet' ? randomInt(5, 10) : randomInt(8, 15);
+        const depart = arrival + stayDuration;
+
+        const train = {
+            id: GameState.trainIdCounter++,
+            type: type,
+            platform: plat,
+            arrivalTime: arrival,
+            departTime: depart % 1440,
+            status: 'scheduled',
+            actualArrival: null,
+            actualDepart: null,
+            delayMinutes: 0,
+            revenue: 0,
+        };
+
+        if (!checkScheduleConflict(train)) {
+            GameState.trains.push(train);
+            const mesh = createTrainMesh(train);
+            GameState.trainMeshes[train.id] = mesh;
+        }
+    }
+
+    renderScheduleTable();
+    showNotification(`📋 已自动生成${GameState.trains.length}列列车时刻表`, 'success');
+}
+
+function removeTrain(trainId) {
+    GameState.trains = GameState.trains.filter(t => t.id !== trainId);
+    if (GameState.trainMeshes[trainId]) {
+        GameState.scene.remove(GameState.trainMeshes[trainId]);
+        delete GameState.trainMeshes[trainId];
+    }
+    renderScheduleTable();
+}
+
+// ==================== 乘客粒子系统 ====================
+function createPassengerParticle(x, y, z) {
+    const geo = new THREE.SphereGeometry(0.2, 6, 6);
+    const colors = [0x3498db, 0xe74c3c, 0xf1c40f, 0x2ecc71, 0x9b59b6, 0xe67e22];
+    const mat = new THREE.MeshLambertMaterial({ color: randomPick(colors) });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y + 0.3, z);
+    mesh.castShadow = true;
+    return mesh;
+}
+
+function updatePassengerParticles(passengerCount) {
+    const targetCount = Math.min(passengerCount, 200);
+    const currentCount = GameState.passengerParticles.length;
+
+    while (GameState.passengerParticles.length < targetCount) {
+        const platIdx = GameState.unlockedPlatforms[randomInt(0, GameState.unlockedPlatforms.length - 1)];
+        const zPos = (platIdx - 1) * CONFIG.PLATFORM_SPACING - (CONFIG.PLATFORM_SPACING * 3.5) + 3.5;
+        const xPos = (Math.random() - 0.5) * (CONFIG.TRACK_LENGTH - 10);
+        const p = createPassengerParticle(xPos, 0, zPos);
+        GameState.passengerParticles.push(p);
+        GameState.scene.add(p);
+    }
+
+    while (GameState.passengerParticles.length > targetCount) {
+        const p = GameState.passengerParticles.pop();
+        GameState.scene.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
+    }
+
+    // 让乘客轻微移动
+    for (let i = 0; i < GameState.passengerParticles.length; i++) {
+        const p = GameState.passengerParticles[i];
+        p.position.x += (Math.random() - 0.5) * 0.03;
+        p.position.z += (Math.random() - 0.5) * 0.02;
+        p.position.x = clamp(p.position.x, -CONFIG.TRACK_LENGTH / 2 + 5, CONFIG.TRACK_LENGTH / 2 - 5);
+    }
+}
+
+// ==================== 经济与客流计算 ====================
+function calculatePassengers() {
+    const platformCount = GameState.unlockedPlatforms.length;
+    const trackCount = platformCount;
+    const trainDensity = Math.min(GameState.trains.length / 5, 4);
+    const cityFactor = getCityFactor(GameState.totalIncome);
+    const dayNightFactor = getDayNightFactor(GameState.timeMinutes);
+    const repFactor = getReputationFactor(GameState.reputation);
+    const weatherFactor = GameState.weather.factor;
+
+    let bonusFactor = 1.0;
+    if (GameState.hasMetroLink) bonusFactor += 0.2;
+    if (GameState.hasTrophy) bonusFactor += 0.05;
+    if (GameState.hasGuangzhouTitle) bonusFactor += 0.1;
+
+    const basePassengers = platformCount * trackCount * trainDensity * cityFactor * 10;
+    let passengers = basePassengers * dayNightFactor * repFactor * weatherFactor * bonusFactor;
+
+    // 商业大厅加成
+    const hallBonus = GameState.builtPassages.filter(p => p.type === 'hall').length * 0.3;
+    passengers *= (1 + hallBonus);
+
+    // 通道容量加成
+    let totalCapacity = 20; // baseline
+    for (const p of GameState.builtPassages) {
+        const pt = PASSAGE_TYPES.find(pt => pt.id === p.type);
+        if (pt) totalCapacity += pt.capacity;
+    }
+    passengers = Math.min(passengers, totalCapacity);
+
+    return Math.max(0, Math.round(passengers));
+}
+
+function calculateRevenue() {
+    let ticketRevenue = 0;
+    let maintenanceCost = 0;
+    const passengers = GameState.currentPassengers;
+
+    for (const train of GameState.trains) {
+        const tType = TRAIN_TYPES.find(t => t.id === train.type);
+        if (!tType) continue;
+
+        let trainRevenue = tType.price * Math.round(passengers / Math.max(GameState.trains.length, 1));
+
+        // 准点扣款
+        if (train.delayMinutes >= 5) {
+            trainRevenue *= (1 - CONFIG.LATE_PENALTY_5MIN);
+        } else if (train.delayMinutes >= 2) {
+            trainRevenue *= (1 - CONFIG.LATE_PENALTY_2MIN);
+        }
+
+        ticketRevenue += trainRevenue;
+        train.revenue = trainRevenue;
+
+        // 维护成本
+        maintenanceCost += tType.price * 0.1;
+    }
+
+    // 设施维护
+    for (const p of GameState.builtPassages) {
+        if (p.type === 'walkway') maintenanceCost += 5;
+    }
+
+    // 员工工资
+    const staffCost = GameState.unlockedPlatforms.length * 2;
+
+    const totalMaintenance = maintenanceCost + staffCost;
+    const netRevenue = ticketRevenue - totalMaintenance;
+
+    return { ticketRevenue, maintenanceCost: totalMaintenance, netRevenue, passengers };
+}
+
+// ==================== 阶段与目标检查 ====================
+function checkStageProgress() {
+    const income = GameState.totalIncome;
+    let newStage = 1;
+
+    for (let i = STAGE_REQUIREMENTS.length - 1; i >= 0; i--) {
+        const req = STAGE_REQUIREMENTS[i];
+        if (income >= req.income &&
+            GameState.unlockedPlatforms.length >= req.platforms) {
+            newStage = i + 1;
+            break;
+        }
+    }
+
+    if (newStage > GameState.currentStage) {
+        GameState.currentStage = newStage;
+        showNotification(`🏆 升级到 ${STAGE_REQUIREMENTS[newStage - 1].label}！`, 'success');
+    }
+
+    GameState.currentStage = newStage;
+
+    // 解锁新站台
+    for (let i = 2; i <= 8; i++) {
+        const reqIndex = i <= 1 ? 0 :
+                          i <= 2 ? 1 :
+                          i <= 4 ? 2 :
+                          i <= 6 ? 3 :
+                          i <= 8 ? 4 : 5;
+        const req = STAGE_REQUIREMENTS[reqIndex];
+        if (income >= req.income && i <= req.platforms && !GameState.unlockedPlatforms.includes(i)) {
+            unlockPlatform(i);
+        }
+    }
+
+    // 彩蛋：樱花皮肤
+    if (newStage === 6 && !GameState.sakuraSkin) {
+        enableSakuraSkin();
+    }
+
+    updateStageUI();
+}
+
+function updateStageUI() {
+    const stageInfo = STAGE_REQUIREMENTS[GameState.currentStage - 1] || STAGE_REQUIREMENTS[0];
+    document.getElementById('stage-text').textContent =
+        `阶段 ${GameState.currentStage}/6 — ${stageInfo.label}`;
+
+    const nextReq = STAGE_REQUIREMENTS[GameState.currentStage];
+    if (nextReq && nextReq.income < 999999999) {
+        const progress = clamp((GameState.totalIncome / nextReq.income) * 100, 2, 99);
+        document.getElementById('stage-progress').style.width = progress + '%';
+    } else {
+        document.getElementById('stage-progress').style.width = '100%';
+    }
+}
+
+function checkGoals() {
+    // 目标1：日客流达500
+    if (!GameState.goalsCompleted['goal1'] && GameState.currentPassengers >= 500) {
+        GameState.goalsCompleted['goal1'] = true;
+        GameState.hasAutoTicket = true;
+        completeGoalUI(1, '🎫 自动售票机已解锁！客流效率+10%');
+    }
+
+    // 目标2：同时3列火车准点进站
+    if (!GameState.goalsCompleted['goal2']) {
+        const onTimeTrains = GameState.trains.filter(t =>
+            t.status === 'arrived' && t.delayMinutes < 2
+        ).length;
+        if (onTimeTrains >= 3 && GameState.day !== GameState.lastSimultaneousDay) {
+            GameState.simultaneousOnTime = onTimeTrains;
+            GameState.lastSimultaneousDay = GameState.day;
+            GameState.goalsCompleted['goal2'] = true;
+            GameState.hasFreeBullet = true;
+            completeGoalUI(2, '🚄 免费获得一列动车！');
+
+            // 添加免费动车
+            if (GameState.trains.length < CONFIG.MAX_TRAINS) {
+                const freeTrain = addTrainToSchedule(
+                    GameState.unlockedPlatforms[0],
+                    'bullet',
+                    GameState.timeMinutes,
+                    GameState.timeMinutes + 15
+                );
+                if (freeTrain) freeTrain.revenue = 0; // 免费
+            }
+        }
+    }
+
+    // 目标3：总资金100000
+    if (!GameState.goalsCompleted['goal3'] && GameState.money >= 100000) {
+        GameState.goalsCompleted['goal3'] = true;
+        GameState.hasMetroLink = true;
+        completeGoalUI(3, '🚇 地铁接驳已开通！客流+20%');
+    }
+
+    // 目标4：日均客流5000且连续7天准点率92%
+    if (!GameState.goalsCompleted['goal4']) {
+        if (GameState.currentPassengers >= 5000 && GameState.punctualityRate >= 92) {
+            GameState.consecutivePunctualDays++;
+            if (GameState.consecutivePunctualDays >= 7) {
+                GameState.goalsCompleted['goal4'] = true;
+                GameState.hasTrophy = true;
+                completeGoalUI(4, '🏆 获得荣誉奖杯！客流+5%');
+            }
+        } else {
+            GameState.consecutivePunctualDays = 0;
+        }
+    }
+
+    // 目标5：>=8站台+所有通道类型
+    if (!GameState.goalsCompleted['goal5']) {
+        const hasAllPlats = GameState.unlockedPlatforms.length >= 8;
+        const passageTypes = new Set(GameState.builtPassages.map(p => p.type));
+        const hasAllPassages = PASSAGE_TYPES.every(pt => passageTypes.has(pt.id));
+        if (hasAllPlats && hasAllPassages) {
+            GameState.goalsCompleted['goal5'] = true;
+            GameState.hasGuangzhouTitle = true;
+            completeGoalUI(5, '🏅 获得「广州南站」称号！终极成就！', 'success');
+            triggerCelebration();
+        }
+    }
+}
+
+function completeGoalUI(goalNum, message) {
+    const checkEl = document.getElementById(`goal-check-${goalNum}`);
+    const goalEl = document.getElementById(`goal-${goalNum}`);
+    if (checkEl) {
+        checkEl.classList.add('done');
+        checkEl.textContent = '✓';
+    }
+    if (goalEl) goalEl.classList.add('completed');
+    showNotification(message, 'success');
+}
+
+function enableSakuraSkin() {
+    GameState.sakuraSkin = true;
+    document.body.classList.add('sakura-theme');
+    showNotification('🌸 樱花主题皮肤已激活！彩蛋达成！', 'success');
+    // 重建站台以应用新颜色
+    rebuildPlatformsVisual();
+}
+
+function rebuildPlatformsVisual() {
+    for (let i = 1; i <= 8; i++) {
+        if (GameState.platformMeshes[i]) {
+            GameState.scene.remove(GameState.platformMeshes[i]);
+        }
+        const mesh = createPlatformMesh(i);
+        mesh.visible = GameState.unlockedPlatforms.includes(i);
+        mesh.userData = { type: 'platform', id: i };
+        GameState.platformMeshes[i] = mesh;
+        GameState.scene.add(mesh);
+    }
+    // 重建主建筑
+    buildStationBuilding();
+}
+
+// ==================== 庆祝动画 ====================
+function triggerCelebration() {
+    const overlay = document.getElementById('celebration-overlay');
+    overlay.classList.add('active');
+    overlay.innerHTML = '';
+
+    const colors = ['#f1c40f', '#e74c3c', '#3498db', '#27ae60', '#9b59b6', '#ff69b4', '#e67e22'];
+    for (let i = 0; i < 150; i++) {
+        setTimeout(() => {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.background = randomPick(colors);
+            confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            confetti.style.width = (5 + Math.random() * 10) + 'px';
+            confetti.style.height = (5 + Math.random() * 10) + 'px';
+            confetti.style.animationDuration = (2 + Math.random() * 3) + 's';
+            overlay.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 5000);
+        }, i * 30);
+    }
+
+    setTimeout(() => overlay.classList.remove('active'), 8000);
+}
+
+// ==================== 通道建设 ====================
+function buildPassage(passageType) {
+    const pt = PASSAGE_TYPES.find(p => p.id === passageType);
+    if (!pt) return;
+
+    if (GameState.money < pt.cost) {
+        showNotification(`💰 资金不足！需要 ${formatMoney(pt.cost)}`, 'error');
+        return false;
+    }
+
+    // 检查是否已建过同类型
+    const existing = GameState.builtPassages.find(p => p.type === passageType);
+    if (existing) {
+        showNotification('该类型的通道已经建造过了', 'warning');
+        return false;
+    }
+
+    GameState.money -= pt.cost;
+    GameState.builtPassages.push({ type: passageType, builtAt: GameState.timeMinutes });
+
+    // 在3D场景中创建通道模型
+    createPassageMesh(passageType, GameState.builtPassages.length);
+
+    showNotification(`🚶 ${pt.name} 建造完成！容量: ${pt.capacity}人/分`, 'success');
+    flashValue('val-money');
+    checkGoals();
+    return true;
+}
+
+function createPassageMesh(passageType, index) {
+    const pt = PASSAGE_TYPES.find(p => p.id === passageType);
+    if (!pt) return;
+
+    const group = new THREE.Group();
+    const xOffset = 35 + index * 8;
+
+    let color, height, width;
+    switch (passageType) {
+        case 'zebra':
+            color = 0xffffff; height = 0.1; width = 4;
+            const zebraGeo = new THREE.BoxGeometry(width, height, 8);
+            const stripeMat = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
+            const zebra = new THREE.Mesh(zebraGeo, stripeMat);
+            zebra.position.set(xOffset, 0.05, 0);
+            group.add(zebra);
+            // 斑马纹
+            for (let s = 0; s < 5; s++) {
+                const strGeo = new THREE.BoxGeometry(0.6, 0.12, 7);
+                const strMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+                const str = new THREE.Mesh(strGeo, strMat);
+                str.position.set(xOffset - 1.2 + s * 0.8, 0.12, 0);
+                group.add(str);
+            }
+            break;
+        case 'bridge':
+            color = 0x8b7355; height = 6; width = 3;
+            const bGeo = new THREE.BoxGeometry(width, height, 8);
+            const bMat = new THREE.MeshLambertMaterial({ color: color });
+            const bridge = new THREE.Mesh(bGeo, bMat);
+            bridge.position.set(xOffset, height / 2, 0);
+            bridge.castShadow = true;
+            group.add(bridge);
+            // 栏杆
+            const railGeo = new THREE.BoxGeometry(0.15, 1, 8.5);
+            const railMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+            const r1 = new THREE.Mesh(railGeo, railMat);
+            r1.position.set(xOffset - 1.4, height + 0.3, 0);
+            group.add(r1);
+            const r2 = new THREE.Mesh(railGeo, railMat);
+            r2.position.set(xOffset + 1.4, height + 0.3, 0);
+            group.add(r2);
+            break;
+        case 'tunnel':
+            color = 0x666666; height = 4; width = 5;
+            const tGeo = new THREE.BoxGeometry(width, height, 8);
+            const tMat = new THREE.MeshLambertMaterial({ color: color });
+            const tunnel = new THREE.Mesh(tGeo, tMat);
+            tunnel.position.set(xOffset, -height / 2 + 0.1, 0);
+            group.add(tunnel);
+            // 入口标识
+            const signGeo = new THREE.BoxGeometry(2, 1, 0.2);
+            const signMat = new THREE.MeshLambertMaterial({ color: 0x3498db });
+            const ts = new THREE.Mesh(signGeo, signMat);
+            ts.position.set(xOffset, 2.5, 4.1);
+            group.add(ts);
+            break;
+        case 'walkway':
+            color = 0x3498db; height = 0.5; width = 4;
+            const wGeo = new THREE.BoxGeometry(width, height, 8);
+            const wMat = new THREE.MeshLambertMaterial({ color: color, transparent: true, opacity: 0.7 });
+            const walkway = new THREE.Mesh(wGeo, wMat);
+            walkway.position.set(xOffset, 0.3, 0);
+            group.add(walkway);
+            // 动感条纹
+            const arrowGeo = new THREE.BoxGeometry(width - 0.5, 0.1, 1);
+            const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for (let a = 0; a < 5; a++) {
+                const ar = new THREE.Mesh(arrowGeo, arrowMat);
+                ar.position.set(xOffset, 0.56, -3 + a * 1.5);
+                group.add(ar);
+            }
+            break;
+        case 'hall':
+            color = 0xf39c12; height = 10; width = 8;
+            const hGeo = new THREE.BoxGeometry(width, height, 10);
+            const hMat = new THREE.MeshLambertMaterial({ color: 0xd4ac6e });
+            const hall = new THREE.Mesh(hGeo, hMat);
+            hall.position.set(xOffset, height / 2, 0);
+            hall.castShadow = true;
+            group.add(hall);
+            // 玻璃幕墙
+            const glassGeo = new THREE.BoxGeometry(0.2, height - 1, 10);
+            const glassMat = new THREE.MeshLambertMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.4 });
+            const g1 = new THREE.Mesh(glassGeo, glassMat);
+            g1.position.set(xOffset + width / 2, height / 2, 0);
+            group.add(g1);
+            const g2 = new THREE.Mesh(glassGeo, glassMat);
+            g2.position.set(xOffset - width / 2, height / 2, 0);
+            group.add(g2);
+            // 招牌
+            const hsignGeo = new THREE.BoxGeometry(6, 1.5, 0.3);
+            const hsignMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
+            const hsign = new THREE.Mesh(hsignGeo, hsignMat);
+            hsign.position.set(xOffset, height + 1.2, 5.2);
+            group.add(hsign);
+            break;
+    }
+
+    group.userData = { type: 'passage', passageType: passageType };
+    GameState.passageMeshes[passageType + '_' + index] = group;
+    GameState.scene.add(group);
+}
+
+// ==================== 列车位置更新 ====================
+function updateTrainPositions(gameTimeMinutes) {
+    for (const train of GameState.trains) {
+        const mesh = GameState.trainMeshes[train.id];
+        if (!mesh) continue;
+
+        const zPos = (train.platform - 1) * CONFIG.PLATFORM_SPACING - (CONFIG.PLATFORM_SPACING * 3.5) - 2;
+        const tType = TRAIN_TYPES.find(t => t.id === train.type) || TRAIN_TYPES[0];
+
+        // 计算列车在一天中的相对时间位置
+        const arrivalMod = train.arrivalTime % 1440;
+        const departMod = train.departTime % 1440;
+        const currentMod = gameTimeMinutes % 1440;
+
+        // 判断列车状态
+        let state = 'scheduled';
+
+        // 处理跨午夜的情况
+        let arrived = false, departed = false;
+        if (arrivalMod <= departMod) {
+            arrived = currentMod >= arrivalMod && currentMod < departMod;
+            departed = currentMod >= departMod;
+        } else {
+            arrived = currentMod >= arrivalMod || currentMod < departMod;
+            departed = currentMod >= departMod && currentMod < arrivalMod;
+        }
+
+        if (departed) {
+            train.status = 'departed';
+            mesh.visible = false;
+            continue;
+        }
+
+        if (arrived) {
+            if (train.status !== 'arrived') {
+                train.status = 'arrived';
+                train.actualArrival = currentMod;
+                // 计算晚点
+                const diff = ((currentMod - arrivalMod) + 1440) % 1440;
+                if (diff > 1440 - 720) { /* near midnight wrap */ }
+                else if (diff > 0) {
+                    train.delayMinutes = diff;
+                    if (diff >= 2) {
+                        GameState.lateCount++;
+                        GameState.reputation = Math.max(0, GameState.reputation - diff * 0.5);
+                    } else {
+                        GameState.onTimeCount++;
+                    }
+                } else {
+                    GameState.onTimeCount++;
+                }
+            }
+            train.status = 'arrived';
+            mesh.visible = true;
+            mesh.position.set(0, 0, zPos);
+        } else {
+            // 接近中 - 从远处驶来
+            const timeUntilArrival = ((arrivalMod - currentMod) + 1440) % 1440;
+            if (timeUntilArrival < 30) { // 30游戏分钟内可见
+                mesh.visible = true;
+                const approachProgress = 1 - (timeUntilArrival / 30);
+                const startX = -80;
+                const endX = 0;
+                mesh.position.set(lerp(startX, endX, approachProgress), 0, zPos);
+            } else {
+                mesh.visible = false;
+            }
+            train.status = 'approaching';
+        }
+    }
+
+    // 重置每日统计（在新的一天开始时）
+    const currentDay = Math.floor(gameTimeMinutes / 1440) + 1;
+    if (currentDay > GameState.day) {
+        GameState.day = currentDay;
+        // 日终结算
+        processEndOfDay();
+        // 随机换天气
+        if (Math.random() < 0.4) changeWeatherRandomly();
+    }
+}
+
+function processEndOfDay() {
+    // 更新准点率
+    const totalTrips = GameState.onTimeCount + GameState.lateCount;
+    if (totalTrips > 0) {
+        GameState.punctualityRate = Math.round((GameState.onTimeCount / totalTrips) * 100);
+    }
+
+    // 信誉缓慢恢复
+    GameState.reputation = Math.min(100, GameState.reputation + 1);
+
+    // 检查连续准点天数
+    if (GameState.punctualityRate >= 92) {
+        GameState.consecutivePunctualDays++;
+    } else {
+        GameState.consecutivePunctualDays = 0;
+    }
+
+    GameState.onTimeCount = 0;
+    GameState.lateCount = 0;
+
+    // 重置列车状态为新的周期
+    for (const train of GameState.trains) {
+        train.status = 'scheduled';
+        train.actualArrival = null;
+        train.actualDepart = null;
+        train.delayMinutes = 0;
+    }
+}
+
+// ==================== UI渲染 ====================
+function renderScheduleTable() {
+    const tbody = document.getElementById('schedule-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (GameState.trains.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:30px;">暂无列车，请添加或自动生成时刻表</td></tr>';
+        return;
+    }
+
+    // 按到站时间排序
+    const sorted = [...GameState.trains].sort((a, b) => a.arrivalTime - b.arrivalTime);
+
+    for (const train of sorted) {
+        const tType = TRAIN_TYPES.find(t => t.id === train.type) || TRAIN_TYPES[0];
+        const conflict = checkScheduleConflictForDisplay(train);
+
+        const tr = document.createElement('tr');
+        if (conflict) tr.className = 'conflict';
+
+        const statusText = {
+            'scheduled': '<span style="color:#8899aa">⏳ 待发</span>',
+            'approaching': '<span style="color:#3498db">🚂 接近中</span>',
+            'arrived': `<span style="color:${train.delayMinutes >= 5 ? '#E74C3C' : train.delayMinutes >= 2 ? '#F39C12' : '#27AE60'}">${train.delayMinutes >= 5 ? '⚠️' : train.delayMinutes >= 2 ? '⏰' : '✅'} ${train.delayMinutes > 0 ? '+' + train.delayMinutes + '分' : '准点'}</span>`,
+            'departed': '<span style="color:#666">👋 已出发</span>',
+        };
+
+        tr.innerHTML = `
+            <td>#${String(train.id).padStart(3, '0')}</td>
+            <td><span class="train-type-badge type-${train.type}">${tType.name}</span></td>
+            <td><input type="text" class="schedule-input" value="${minutesToHHMM(train.arrivalTime)}"
+                   onchange="Game.updateTrainTime(${train.id},'arrival',this.value)" /></td>
+            <td><input type="text" class="schedule-input" value="${minutesToHHMM(train.departTime)}"
+                   onchange="Game.updateTrainTime(${train.id},'depart',this.value)" /></td>
+            <td>
+                <select class="schedule-select" onchange="Game.updateTrainPlatform(${train.id},this.value)">
+                    ${GameState.unlockedPlatforms.map(p =>
+                        `<option value="${p}" ${p === train.platform ? 'selected' : ''}>${p}号站台</option>`
+                    ).join('')}
+                </select>
+            </td>
+            <td>${statusText[train.status] || statusText['scheduled']}</td>
+            <td><button class="btn-action btn-danger" style="padding:3px 8px;font-size:11px;" onclick="Game.deleteTrain(${train.id})">删除</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+function checkScheduleConflictForDisplay(targetTrain) {
+    for (const t of GameState.trains) {
+        if (t.id === targetTrain.id) continue;
+        if (t.platform !== targetTrain.platform) continue;
+        const gaps = [
+            Math.abs(t.arrivalTime - targetTrain.arrivalTime),
+            Math.abs(t.departTime - targetTrain.arrivalTime),
+            Math.abs(t.arrivalTime - targetTrain.departTime),
+            Math.abs(t.departTime - targetTrain.departTime),
+        ];
+        if (gaps.some(g => g > 0 && g < CONFIG.CONFLICT_MINUTES)) return true;
+    }
+    return false;
+}
+
+function renderPassageGrid() {
+    const grid = document.getElementById('passage-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (const pt of PASSAGE_TYPES) {
+        const built = GameState.builtPassages.some(p => p.type === pt.id);
+        const canAfford = GameState.money >= pt.cost;
+
+        const card = document.createElement('div');
+        card.className = 'passage-card' + (built ? ' selected' : '') + (!canAfford && !built ? ' locked-style' : '');
+        card.innerHTML = `
+            <div class="passage-icon">${pt.icon}</div>
+            <div class="passage-name">${pt.name}</div>
+            <div class="passage-cost">${formatMoney(pt.cost)}</div>
+            <div class="passage-capacity">${pt.capacity}人/分 · ${pt.desc}</div>
+            ${built ? '<div style="color:#27AE60;margin-top:4px;font-size:11px;">✓ 已建造</div>' : ''}
+        `;
+        card.onclick = () => {
+            if (built) return;
+            GameState.selectedPassageType = pt.id;
+            document.querySelectorAll('.passage-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            const btn = document.getElementById('btn-build-passage');
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        };
+        grid.appendChild(card);
+    }
+}
+
+function updateDataPanel() {
+    flashValue('val-money');
+    document.getElementById('val-money').textContent = formatMoney(GameState.money);
+    document.getElementById('val-total-income').textContent = formatMoney(GameState.totalIncome);
+    document.getElementById('val-passengers').textContent = formatNum(GameState.currentPassengers);
+    document.getElementById('val-punctuality').textContent = GameState.punctualityRate + '%';
+
+    const punctEl = document.getElementById('val-punctuality');
+    punctEl.className = 'data-value ' + (
+        GameState.punctualityRate >= 95 ? 'success' :
+        GameState.punctualityRate >= 80 ? 'warning' : 'danger'
+    );
+
+    document.getElementById('val-reputation').textContent = getReputationGrade(GameState.reputation);
+    document.getElementById('val-trains').textContent = `${GameState.trains.length}/${CONFIG.MAX_TRAINS}`;
+    document.getElementById('game-time').textContent = minutesToHHMM(GameState.timeMinutes);
+    document.getElementById('game-day').textContent = `第${GameState.day}天`;
+}
+
+// ==================== 事件处理 ====================
+function setupEventListeners() {
+    window.addEventListener('resize', onWindowResize);
+
+    document.addEventListener('keydown', onKeyDown);
+
+    // 倍速按钮
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const speed = parseInt(btn.dataset.speed);
+            GameState.speedMultiplier = speed;
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // 点击检测
+    GameState.renderer.domElement.addEventListener('click', onCanvasClick);
+}
+
+function onWindowResize() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 120;
+    GameState.camera.left = -frustumSize * aspect / 2;
+    GameState.camera.right = frustumSize * aspect / 2;
+    GameState.camera.top = frustumSize / 2;
+    GameState.camera.bottom = -frustumSize / 2;
+    GameState.camera.updateProjectionMatrix();
+    GameState.renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function onKeyDown(e) {
+    switch (e.key.toLowerCase()) {
+        case 'w': panCamera(0, -1); break;
+        case 's': panCamera(0, 1); break;
+        case 'a': panCamera(-1, 0); break;
+        case 'd': panCamera(1, 0); break;
+        case ' ':
+            e.preventDefault();
+            GameState.paused = !GameState.paused;
+            document.getElementById('pause-indicator').style.display = GameState.paused ? 'block' : 'none';
+            break;
+        case '1': setSpeed(1); break;
+        case '2': setSpeed(2); break;
+        case '3': setSpeed(4); break;
+    }
+}
+
+function setSpeed(s) {
+    GameState.speedMultiplier = s;
+    document.querySelectorAll('.speed-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.speed) === s);
+    });
+}
+
+function onCanvasClick(event) {
+    if (isDragging) return;
+
+    const rect = GameState.renderer.domElement.getBoundingClientRect();
+    GameState.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    GameState.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    GameState.raycaster.setFromCamera(GameState.mouse, GameState.camera);
+
+    const objects = [];
+    for (const key in GameState.platformMeshes) {
+        if (GameState.platformMeshes[key].visible) {
+            objects.push(GameState.platformMeshes[key]);
+        }
+    }
+
+    const intersects = GameState.raycaster.intersectObjects(objects, true);
+
+    if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj.parent && !obj.userData.type) {
+            obj = obj.parent;
+        }
+        if (obj.userData && obj.userData.type === 'platform') {
+            Game.openSchedule(obj.userData.id);
+        }
+    }
+}
+
+// ==================== 主循环 ====================
+function gameLoop() {
+    requestAnimationFrame(gameLoop);
+
+    const delta = GameState.clock.getDelta();
+
+    if (!GameState.paused) {
+        // 更新游戏时间
+        GameState.timeMinutes += delta * CONFIG.TIME_SCALE * GameState.speedMultiplier;
+        if (GameState.timeMinutes >= 1440 * 365) GameState.timeMinutes = 360; // 防止溢出
+
+        // 更新列车位置
+        updateTrainPositions(GameState.timeMinutes);
+
+        // 更新天气计时器
+        GameState.weatherTimer += delta;
+        if (GameState.weatherTimer > 120) { // 每2现实分钟可能换天气
+            GameState.weatherTimer = 0;
+            if (Math.random() < 0.3) changeWeatherRandomly();
+        }
+
+        // 更新天气粒子
+        updateWeatherParticles(delta);
+
+        // 计算经济
+        const econ = calculateRevenue();
+        GameState.currentPassengers = econ.passengers;
+        GameState.money += econ.netRevenue * delta * GameState.speedMultiplier / 60; // 每秒收入
+        if (econ.netRevenue > 0) {
+            GameState.totalIncome += Math.abs(econ.ticketRevenue * delta * GameState.speedMultiplier / 60);
+        }
+        GameState.totalIncomePerHour = econ.netRevenue * 60;
+
+        // 更新乘客粒子
+        updatePassengerParticles(GameState.currentPassengers);
+
+        // UI节流更新
+        GameState.uiUpdateTimer += delta * 1000;
+        if (GameState.uiUpdateTimer >= CONFIG.UI_UPDATE_INTERVAL) {
+            GameState.uiUpdateTimer = 0;
+            updateDataPanel();
+            checkStageProgress();
+            checkGoals();
+        }
+    }
+
+    // 渲染
+    GameState.renderer.render(GameState.scene, GameState.camera);
+}
+
+// ==================== 公开API (Game对象) ====================
+window.Game = {
+    openSchedule: function(platformId) {
+        GameState.selectedPlatformForSchedule = platformId;
+        document.getElementById('schedule-modal-title').textContent =
+            `🚂 ${platformId}号站台调度管理`;
+        renderScheduleTable();
+        document.getElementById('modal-schedule').classList.add('active');
+    },
+
+    closeModal: function(id) {
+        document.getElementById(id).classList.remove('active');
+    },
+
+    openPassageBuild: function() {
+        GameState.selectedPassageType = null;
+        renderPassageGrid();
+        const btn = document.getElementById('btn-build-passage');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+        document.getElementById('modal-passage').classList.add('active');
+    },
+
+    buildSelectedPassage: function() {
+        if (GameState.selectedPassageType) {
+            if (buildPassage(GameState.selectedPassageType)) {
+                Game.closeModal('modal-passage');
+            }
+        }
+    },
+
+    addTrain: function() {
+        if (GameState.trains.length >= CONFIG.MAX_TRAINS) {
+            showNotification('已达最大列车数量(20)', 'error');
+            return;
+        }
+        const plat = GameState.selectedPlatformForSchedule || 1;
+        const types = ['normal', 'fast', 'bullet', 'hsr'];
+        const type = types[Math.min(Math.floor(GameState.currentStage) - 1, 3)] || 'normal';
+        const now = GameState.timeMinutes % 1440;
+        const train = addTrainToSchedule(plat, type, now, now + 10);
+        if (train) {
+            renderScheduleTable();
+            showNotification(`🚂 列车 #${String(train.id).padStart(3, '0')} 已添加`, 'success');
+        }
+    },
+
+    autoGenerate: function() {
+        autoGenerateSchedule();
+    },
+
+    saveSchedule: function() {
+        Game.closeModal('modal-schedule');
+        showNotification('💾 时刻表已保存', 'success');
+    },
+
+    deleteTrain: function(trainId) {
+        removeTrain(trainId);
+        showNotification('🗑️ 列车已移除', 'warning');
+    },
+
+    updateTrainTime: function(trainId, field, value) {
+        const train = GameState.trains.find(t => t.id === trainId);
+        if (!train) return;
+        const mins = hhmmToMinutes(value);
+        if (field === 'arrival') train.arrivalTime = mins;
+        else if (field === 'depart') train.departTime = mins;
+        renderScheduleTable();
+    },
+
+    updateTrainPlatform: function(trainId, value) {
+        const train = GameState.trains.find(t => t.id === trainId);
+        if (!train) return;
+        train.platform = parseInt(value);
+        renderScheduleTable();
+    },
+};
+
+// ==================== 启动游戏 ====================
+function init() {
+    initScene();
+
+    // 添加几列初始列车
+    addTrainToSchedule(1, 'normal', 360, 380);
+    addTrainToSchedule(1, 'fast', 420, 440);
+    addTrainToSchedule(1, 'normal', 480, 505);
+
+    updateDataPanel();
+    checkStageProgress();
+
+    // 开始主循环
+    gameLoop();
+
+    showNotification('🚂 欢迎来到 Railway Frontier！右键拖拽旋转视角', 'success');
+}
+
+// DOM加载完成后启动
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+})();
+    </script>
+</body>
+</html>
