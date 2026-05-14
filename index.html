@@ -125,6 +125,24 @@
             animation: pulse 1s infinite;
         }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        
+        /* 新手引导高亮按钮 */
+        .highlight-pulse {
+            animation: highlightPulse 1.5s ease-in-out infinite;
+            border: 2px solid #27AE60 !important;
+            box-shadow: 0 0 15px rgba(39,174,96,0.6) !important;
+            background: linear-gradient(135deg, rgba(39,174,96,0.2), rgba(46,204,113,0.1)) !important;
+        }
+        @keyframes highlightPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(39,174,96,0.6);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 25px rgba(39,174,96,0.9);
+            }
+        }
 
         /* 左侧建设面板 */
         .left-panel {
@@ -1092,8 +1110,8 @@
         <!-- 左侧建设面板 -->
         <div class="left-panel">
             <div class="panel-title">🚉 站台建设</div>
-            <button class="build-btn" data-platform="1" onclick="Game.openSchedule(1)">
-                <span class="build-btn-name">1号站台</span><span class="build-btn-cost">已启用</span>
+            <button class="build-btn highlight-pulse" data-platform="1" id="btn-plat-1" onclick="buildFirstPlatform()">
+                <span class="build-btn-name">🆓 1号站台</span><span class="build-btn-cost" style="color:#27AE60;">免费建造</span>
             </button>
             <button class="build-btn locked" data-platform="2" id="btn-plat-2">
                 <span class="build-btn-name">2号站台</span><span class="build-btn-cost">需¥5,000</span>
@@ -1788,8 +1806,8 @@ function formatMoney(n) { return '¥' + n.toLocaleString('zh-CN'); }
 function formatNum(n) { return n.toLocaleString('zh-CN'); }
 function padZero(n) { return String(n).padStart(2, '0'); }
 function minutesToHHMM(m) {
-    const h = Math.floor(m / 60) % 24;
-    const mi = m % 60;
+    const h = Math.floor(Math.floor(m) / 60) % 24;
+    const mi = Math.floor(m) % 60;
     return `${padZero(h)}:${padZero(mi)}`;
 }
 function hhmmToMinutes(hhmm) {
@@ -4023,7 +4041,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
     const delta = GameState.clock.getDelta();
 
-    if (!GameState.paused) {
+    if (!GameState.paused && GameState.tutorialStep >= 2) {  // 引导完成后才运行游戏逻辑
         const speedMult = GameState.speedMultiplier * (GameState.testRunMode ? 8 : 1);
         GameState.timeMinutes += delta * CONFIG.TIME_SCALE * speedMult;
         if (GameState.timeMinutes >= 1440 * 365) GameState.timeMinutes = 360;
@@ -4151,14 +4169,105 @@ window.Game = {
 // ==================== 启动游戏 ====================
 function init() {
     initScene();
-    addTrainToSchedule(1, 'normal', 360, 380);
-    addTrainToSchedule(1, 'fast', 420, 440);
-    addTrainToSchedule(1, 'normal', 480, 505);
+
+    // 新手引导模式：初始状态
+    GameState.paused = true;  // 开始时暂停
+    GameState.tutorialStep = 0;  // 引导步骤：0=未开始, 1=建站台, 2=建轨道, 3=完成
+    GameState.unlockedPlatforms = [];  // 初始无站台（玩家自己建）
+    GameState.builtPassages = [];
+    GameState.trains = [];  // 初始无列车
+
+    // 隐藏所有站台（让玩家自己建造第一个）
+    for (let i = 1; i <= 8; i++) {
+        if (GameState.platformMeshes[i]) {
+            GameState.platformMeshes[i].visible = false;
+        }
+    }
+
     updateDataPanel();
-    checkStageProgress();
     EventSystem.initSettingsUI();
     gameLoop();
-    showNotification('🚂 欢迎来到 Railway Frontier v2.0！右键拖拽旋转视角，共9大系统已就绪', 'success');
+
+    // 显示新手引导
+    showTutorialGuide();
+}
+
+// 新手引导系统
+function showTutorialGuide() {
+    const container = document.getElementById('notif-container');
+    
+    const guide = document.createElement('div');
+    guide.className = 'notification success';
+    guide.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;padding:30px 40px;z-index:1000;max-width:500px;text-align:center;line-height:2;';
+    guide.id = 'tutorial-guide';
+    guide.innerHTML = `
+        <div style="font-size:24px;margin-bottom:15px;">🚂 欢迎来到 Railway Frontier！</div>
+        <div style="margin:10px 0;">你将在这里建造一座超级火车站</div>
+        <div style="background:rgba(0,0,0,0.3);padding:15px;border-radius:10px;margin-top:15px;">
+            <div style="color:#F1C40F;font-weight:bold;font-size:18px;margin-bottom:10px;">📋 第一步：建造你的第一个站台</div>
+            <div style="font-size:13px;color:#ccc;">点击左侧的 <b>"🆓 免费建造1号站台"</b> 按钮<br>这是完全免费的！</div>
+        </div>
+        <button onclick="closeTutorialGuide()" style="margin-top:20px;padding:10px 30px;background:#27AE60;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;">
+            知道了！开始建设 →
+        </button>
+    `;
+    
+    container.appendChild(guide);
+}
+
+function closeTutorialGuide() {
+    const guide = document.getElementById('tutorial-guide');
+    if (guide) guide.remove();
+}
+
+// 免费建造第一个站台（新手引导）
+function buildFirstPlatform() {
+    if (GameState.tutorialStep !== 0) {
+        showNotification('请先完成当前引导步骤', 'warning');
+        return;
+    }
+    
+    if (GameState.unlockedPlatforms.includes(1)) {
+        showNotification('1号站台已经存在', 'info');
+        return;
+    }
+    
+    // 免费解锁第一个站台
+    GameState.unlockedPlatforms.push(1);
+    if (GameState.platformMeshes[1]) {
+        GameState.platformMeshes[1].visible = true;
+    }
+    
+    // 更新按钮状态
+    const btn = document.getElementById('btn-plat-1');
+    if (btn) {
+        btn.classList.remove('locked');
+        btn.querySelector('.build-btn-cost').textContent = '已启用';
+        btn.onclick = () => Game.openSchedule(1);
+    }
+    
+    GameState.tutorialStep = 1;
+    
+    showNotification('✅ 1号站台建造完成！轨道已自动接入', 'success');
+    showNotification('📋 第二步：现在可以添加列车了！点击"1号站台"打开调度面板', 'info');
+    
+    // 自动添加3列初始列车（引导完成后）
+    setTimeout(() => {
+        addTrainToSchedule(1, 'normal', 360, 380);
+        addTrainToSchedule(1, 'fast', 420, 440);
+        addTrainToSchedule(1, 'normal', 480, 505);
+        
+        GameState.tutorialStep = 2;  // 引导完成
+        
+        // 解除暂停，开始游戏
+        setTimeout(() => {
+            GameState.paused = false;
+            showNotification('🎉 建设完成！游戏正式开始！按 空格键 暂停/继续', 'success');
+        }, 2000);
+        
+        renderScheduleTable();
+        checkStageProgress();
+    }, 1500);
 }
 
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
@@ -4173,6 +4282,7 @@ window.SceneEditor = SceneEditor;
 window.TrainConfig = TrainConfig;
 window.RepairBay = RepairBay;
 window.Game = Game;
+window.buildFirstPlatform = buildFirstPlatform;
 
 })();
     </script>
