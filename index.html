@@ -1519,16 +1519,47 @@ function showTutorial() {
             </div>
         </div>
         
-        <button class="tutorial-btn" onclick="closeTutorial()">👍 开始建造我的火车站！</button>
+        <button class="tutorial-btn" onclick="
+            try {
+                if(typeof closeTutorial === 'function') {
+                    closeTutorial();
+                } else {
+                    alert('游戏初始化中，请稍候...');
+                    location.reload();
+                }
+            } catch(e) {
+                console.error('Button error:', e);
+                document.querySelectorAll('.tutorial-overlay').forEach(el=>el.remove());
+            }
+        ">👍 开始建造我的火车站！</button>
     `;
     document.body.appendChild(o);
 }
 
 function closeTutorial() {
-    const o=document.getElementById('tutorial-overlay');
-    if(o)o.remove();
-    GameState.tutorialComplete=true;
-    selectTool('platform');
+    try {
+        const o=document.getElementById('tutorial-overlay');
+        if(o){
+            o.style.opacity='0';
+            o.style.transition='opacity 0.3s';
+            setTimeout(()=>{ if(o.parentNode) o.parentNode.removeChild(o); },300);
+        }
+        GameState.tutorialComplete=true;
+        
+        // 延迟一下再选择工具，确保UI更新
+        setTimeout(()=>{
+            selectTool('platform');
+            showNotification('🎉 游戏开始！点击地图建造你的第一个站台', 'success');
+        }, 400);
+        
+        console.log('Tutorial closed, game started');
+    } catch(e) {
+        console.error('Error closing tutorial:', e);
+        // 强制移除
+        document.querySelectorAll('.tutorial-overlay').forEach(el=>el.remove());
+        GameState.tutorialComplete=true;
+        selectTool('platform');
+    }
 }
 
 // ==================== 主循环 ====================
@@ -1554,15 +1585,45 @@ function gameLoop() {
 
 // ==================== 初始化 ====================
 function init(){
-    initScene();
-    updateUI();
-    gameLoop();
-    setTimeout(showTutorial,600);
+    console.log('🚂 Railway Builder: Initializing...');
+    
+    try {
+        initScene();
+        updateUI();
+        gameLoop();
+        
+        console.log('✅ Scene initialized, showing tutorial in 600ms');
+        setTimeout(()=>{
+            try {
+                showTutorial();
+                console.log('✅ Tutorial displayed');
+            } catch(e) {
+                console.error('❌ Tutorial error:', e);
+            }
+        }, 600);
+        
+    } catch(e) {
+        console.error('❌ Init error:', e);
+        document.body.innerHTML = `
+            <div style="padding:40px;font-family:sans-serif;color:#e74c3c;text-align:center;">
+                <h1>⚠️ 游戏加载出错</h1>
+                <p>错误信息: ${e.message}</p>
+                <pre>${e.stack}</pre>
+                <button onclick="location.reload()" style="padding:10px 20px;margin-top:20px;cursor:pointer;">🔄 重新加载</button>
+            </div>
+        `;
+    }
 }
 
+console.log('📦 Script loaded, waiting for DOM...');
+
 if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',init);
+    document.addEventListener('DOMContentLoaded',()=>{
+        console.log('🎯 DOM ready, initializing');
+        init();
+    });
 }else{
+    console.log('🎯 DOM already ready, initializing now');
     init();
 }
 
