@@ -3,1636 +3,730 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚂 Railway Builder - 自由建造</title>
+    <title>🚂 Railway Builder</title>
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: #1a1a2e;
-            color: #eaeaea;
-            overflow: hidden;
-            user-select: none;
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Microsoft YaHei',sans-serif;background:#1a1a2e;color:#eee;overflow:hidden;user-select:none}
+        #canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
         
-        #canvas-container {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0;
-        }
+        /* 顶部栏 */
+        .topbar{position:fixed;top:0;left:0;right:0;height:44px;background:rgba(20,25,40,0.95);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:100;border-bottom:1px solid rgba(255,255,255,0.08)}
+        .time-box{font-family:'Courier New',monospace;font-size:18px;color:#F1C40F;font-weight:bold}
+        .money-box{background:linear-gradient(135deg,rgba(39,174,96,0.2),rgba(46,204,113,0.1));border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:5px 14px;display:flex;align-items:center;gap:6px}
+        .money-val{font-family:'Courier New',monospace;font-size:17px;color:#2ECC71;font-weight:bold}
         
-        #ui-layer {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #ui-layer > * { pointer-events: auto; }
+        /* 左侧工具栏 */
+        .toolbar{position:fixed;top:54px;left:10px;width:170px;background:rgba(22,28,45,0.95);backdrop-filter:blur(10px);border:1px solid rgba(52,152,219,0.25);border-radius:12px;padding:12px;z-index:100}
+        .toolbar-title{font-size:12px;color:#F1C40F;margin-bottom:10px;font-weight:bold;letter-spacing:0.5px}
+        .tool-btn{width:100%;padding:9px 8px;margin-bottom:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:7px;color:#ddd;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
+        .tool-btn:hover:not(.active){background:rgba(52,152,219,0.2);transform:translateX(2px)}
+        .tool-btn.active{background:linear-gradient(135deg,rgba(231,76,60,0.35),rgba(230,126,34,0.2));border-color:rgba(231,76,60,0.7);box-shadow:0 0 12px rgba(231,76,60,0.3)}
+        .cost-tag{font-size:10px;background:rgba(0,0,0,0.3);padding:2px 7px;border-radius:8px;color:#F39C12}
         
-        /* ========== 顶部栏 ========== */
-        .top-bar {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 48px;
-            background: linear-gradient(180deg, rgba(20,25,40,0.97), rgba(20,25,40,0.85));
-            backdrop-filter: blur(12px);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 18px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            z-index: 100;
-        }
+        /* 右侧信息面板 */
+        .info-panel{position:fixed;top:54px;right:10px;display:flex;flex-direction:column;gap:8px;z-index:100}
+        .info-card{background:rgba(22,28,45,0.92);backdrop-filter:blur(10px);border:1px solid rgba(52,152,219,0.25);border-radius:10px;padding:10px 12px;min-width:90px}
+        .info-label{font-size:9px;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+        .info-val{font-family:'Courier New',monospace;font-size:19px;font-weight:bold}
         
-        .time-display {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 15px;
-        }
-        .time-value {
-            font-family: 'Courier New', monospace;
-            font-size: 20px;
-            font-weight: bold;
-            color: #F1C40F;
-        }
+        /* 底部状态栏 */
+        .statusbar{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(22,28,45,0.92);border:1px solid rgba(52,152,219,0.25);border-radius:10px;padding:8px 20px;font-size:12px;z-index:100;display:flex;align-items:center;gap:12px}
+        .mode-badge{padding:4px 12px;border-radius:6px;font-weight:bold;font-size:11px}
+        .mode-build{background:rgba(39,174,96,0.25);color:#2ECC71;border:1px solid rgba(39,174,96,0.5)}
+        .mode-track{background:rgba(230,126,34,0.25);color:#F39C12;border:1px solid rgba(230,126,34,0.5)}
         
-        .money-display {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 16px;
-            background: linear-gradient(135deg, rgba(39,174,96,0.2), rgba(46,204,113,0.1));
-            border: 1px solid rgba(39,174,96,0.4);
-            border-radius: 8px;
-        }
-        .money-value {
-            font-family: 'Courier New', monospace;
-            font-size: 18px;
-            font-weight: bold;
-            color: #2ECC71;
-        }
+        /* 通知 */
+        .notif{position:fixed;top:55px;left:50%;transform:translateX(-50%) translateY(-15px);background:rgba(22,28,45,0.97);border-left:4px solid #27AE60;border-radius:8px;padding:10px 20px;color:#fff;font-size:13px;z-index:999;opacity:0;transition:all 0.3s;pointer-events:none;text-align:center;max-width:400px}
+        .notif.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        .notif.err{border-left-color:#E74C3C}
+        .notif.info{border-left-color:#3498DB}
         
-        /* ========== 工具栏（左侧） ========== */
-        .toolbar {
-            position: absolute;
-            top: 60px;
-            left: 12px;
-            width: 180px;
-            background: rgba(22,28,45,0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(52,152,219,0.25);
-            border-radius: 14px;
-            padding: 14px;
-            z-index: 100;
-        }
-        .toolbar-title {
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 12px;
-            color: #F1C40F;
-            letter-spacing: 0.5px;
-        }
+        /* 提示文字 */
+        .hint{position:fixed;bottom:42px;right:12px;font-size:11px;color:rgba(255,255,255,0.25);text-align:right;line-height:1.7;z-index:99}
         
-        .tool-btn {
-            width: 100%;
-            padding: 11px 10px;
-            margin-bottom: 7px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 9px;
-            color: #ddd;
-            cursor: pointer;
-            transition: all 0.25s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-        }
-        .tool-btn:hover:not(.disabled):not(.active) {
-            background: rgba(52,152,219,0.2);
-            border-color: rgba(52,152,219,0.4);
-            transform: translateX(3px);
-        }
-        .tool-btn.active {
-            background: linear-gradient(135deg, rgba(231,76,60,0.35), rgba(230,126,34,0.2));
-            border-color: rgba(231,76,60,0.7);
-            box-shadow: 0 0 15px rgba(231,76,60,0.3);
-        }
-        .tool-btn.disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-        .tool-icon { font-size: 16px; }
-        .tool-cost {
-            font-size: 11px;
-            padding: 2px 8px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
-            color: #F39C12;
-        }
-        
-        /* ========== 右侧信息面板 ========== */
-        .info-panel {
-            position: absolute;
-            top: 60px;
-            right: 12px;
-            width: 200px;
-            display: flex;
-            flex-direction: column;
-            gap: 9px;
-            z-index: 100;
-        }
-        .info-card {
-            background: rgba(22,28,45,0.92);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(52,152,219,0.25);
-            border-radius: 11px;
-            padding: 12px 14px;
-        }
-        .info-label {
-            font-size: 10px;
-            color: #7f8c8d;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
-        .info-value {
-            font-family: 'Courier New', monospace;
-            font-size: 20px;
-            font-weight: bold;
-        }
-        .info-card.platforms .info-value { color: #3498DB; }
-        .info-card.tracks .info-value { color: #E67E22; }
-        .info-card.trains .info-value { color: #E74C3C; }
-        .info-card.income .info-value { color: #27AE60; }
-        
-        /* ========== 底部状态栏 ========== */
-        .bottom-bar {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(22,28,45,0.92);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(52,152,219,0.25);
-            border-radius: 12px;
-            padding: 10px 24px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-size: 13px;
-            z-index: 100;
-        }
-        .mode-indicator {
-            padding: 5px 14px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        .mode-build { background: rgba(39,174,96,0.25); color: #2ECC71; border: 1px solid rgba(39,174,96,0.5); }
-        .mode-track { background: rgba(230,126,34,0.25); color: #F39C12; border: 1px solid rgba(230,126,34,0.5); }
-        .mode-view { background: rgba(52,152,219,0.25); color: #3498DB; border: 1px solid rgba(52,152,219,0.5); }
-        
-        /* ========== 提示文字 ========== */
-        .hint-text {
-            position: absolute;
-            bottom: 55px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255,255,255,0.4);
-            font-size: 12px;
-            text-align: center;
-            line-height: 1.7;
-            pointer-events: none;
-        }
-        
-        /* ========== 通知弹窗 ========== */
-        .notification {
-            position: fixed;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            background: rgba(22,28,45,0.97);
-            backdrop-filter: blur(15px);
-            border-left: 4px solid #27AE60;
-            border-radius: 10px;
-            padding: 12px 22px;
-            color: #fff;
-            font-size: 13px;
-            z-index: 1000;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);
-            pointer-events: none;
-            max-width: 420px;
-            text-align: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .notification.error { border-left-color: #E74C3C; }
-        .notification.warning { border-left-color: #F39C12; }
-        .notification.info { border-left-color: #3498DB; }
-        
-        /* ========== 引导弹窗 ========== */
-        .tutorial-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.78);
-            backdrop-filter: blur(6px);
-            z-index: 999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .tutorial-box {
-            background: linear-gradient(145deg, #16213e, #1a1a2e);
-            border: 2px solid rgba(52,152,219,0.4);
-            border-radius: 20px;
-            padding: 32px 40px;
-            max-width: 520px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(52,152,219,0.08);
-        }
-        .tutorial-title {
-            font-size: 26px;
-            margin-bottom: 8px;
-            color: #F1C40F;
-        }
-        .tutorial-subtitle {
-            font-size: 14px;
-            color: #95a5a6;
-            margin-bottom: 22px;
-        }
-        .tutorial-step {
-            background: rgba(39,174,96,0.12);
-            border: 1px solid rgba(39,174,96,0.3);
-            border-radius: 12px;
-            padding: 16px;
-            margin: 12px 0;
-            text-align: left;
-        }
-        .tutorial-step-title {
-            color: #2ECC71;
-            font-weight: bold;
-            font-size: 15px;
-            margin-bottom: 7px;
-        }
-        .tutorial-step-desc {
-            color: #bdc3c7;
-            font-size: 13px;
-            line-height: 1.65;
-        }
-        .tutorial-btn {
-            margin-top: 22px;
-            padding: 13px 36px;
-            background: linear-gradient(135deg, #27AE60, #2ECC71);
-            border: none;
-            border-radius: 10px;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .tutorial-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(39,174,96,0.4);
-        }
-        
-        /* ========== 操作提示 ========== */
-        .controls-hint {
-            position: absolute;
-            bottom: 12px;
-            right: 12px;
-            font-size: 11px;
-            color: rgba(255,255,255,0.25);
-            text-align: right;
-            line-height: 1.8;
-        }
-        
-        /* ========== 模式提示 ========== */
-        .mode-hint-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 50;
-        }
-        .mode-hint-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: rgba(255,255,255,0.15);
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            animation: hintPulse 2s ease-in-out infinite;
-        }
-        @keyframes hintPulse {
-            0%, 100% { opacity: 0.15; transform: translate(-50%,-50%) scale(1); }
-            50% { opacity: 0.3; transform: translate(-50%,-50%) scale(1.03); }
-        }
+        /* 大字提示 */
+        .big-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:bold;color:rgba(243,156,18,0.2);pointer-events:none;z-index:50;text-shadow:0 2px 10px rgba(0,0,0,0.4)}
     </style>
 </head>
 <body>
 
 <div id="canvas-container"></div>
 
-<div id="ui-layer">
-    
-    <!-- 顶部栏 -->
-    <div class="top-bar">
-        <div class="time-display">
-            <span>🕐</span>
-            <span class="time-value" id="time-display">08:00</span>
-            <span style="color:#7f8c8d;font-size:12px;" id="day-display">第1天</span>
-        </div>
-        
-        <div class="speed-controls" style="display:flex;gap:6px;">
-            <button class="tool-btn" style="width:auto;padding:5px 12px;font-size:12px;" onclick="setSpeed(1)" id="spd-1">×1</button>
-            <button class="tool-btn" style="width:auto;padding:5px 12px;font-size:12px;" onclick="setSpeed(2)" id="spd-2">×2</button>
-            <button class="tool-btn" style="width:auto;padding:5px 12px;font-size:12px;" onclick="setSpeed(4)" id="spd-4">×4</button>
-            <button class="tool-btn" style="width:auto;padding:5px 12px;font-size:12px;" onclick="togglePause()" id="btn-pause">⏸</button>
-        </div>
-        
-        <div class="money-display">
-            <span>💰</span>
-            <span class="money-value" id="val-money">¥5,000</span>
-        </div>
+<!-- UI层 -->
+<div class="topbar">
+    <div class="time-box" id="timetxt">08:00 第1天</div>
+    <div style="display:flex;gap:5px">
+        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(1)">×1</button>
+        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(2)">×2</button>
+        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(4)">×4</button>
+        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="togPause()" id="pbtn">⏸</button>
     </div>
-    
-    <!-- 左侧工具栏 -->
-    <div class="toolbar">
-        <div class="toolbar-title">🔧 建造工具</div>
-        
-        <button class="tool-btn active" id="tool-platform" onclick="selectTool('platform')">
-            <span><span class="tool-icon">🚉</span> 建造站台</span>
-            <span class="tool-cost">¥800</span>
-        </button>
-        
-        <button class="tool-btn" id="tool-track" onclick="selectTool('track')">
-            <span><span class="tool-icon">🛤️</span> 铺设轨道</span>
-            <span class="tool-cost">¥50/格</span>
-        </button>
-        
-        <button class="tool-btn" id="tool-passage" onclick="selectTool('passage')">
-            <span><span class="tool-icon">🚶</span> 人行通道</span>
-            <span class="tool-cost">¥300</span>
-        </button>
-        
-        <button class="tool-btn" id="tool-delete" onclick="selectTool('delete')">
-            <span><span class="tool-icon">🗑️</span> 删除</span>
-            <span style="font-size:11px;color:#e74c3c;">返还50%</span>
-        </button>
-        
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
-            <div class="toolbar-title">🎮 视图工具</div>
-            <button class="tool-btn" onclick="selectTool('view')" id="tool-view">
-                <span><span class="tool-icon">👁️</span> 观看模式</span>
-                <span style="color:#95a5a6;">自由视角</span>
-            </button>
-            
-            <button class="tool-btn" onclick="addTrainManually()" id="btn-add-train">
-                <span><span class="tool-icon">🚂</span> 发送列车</span>
-                <span style="color:#3498db;">免费</span>
-            </button>
-        </div>
-    </div>
-    
-    <!-- 右侧信息面板 -->
-    <div class="info-panel">
-        <div class="info-card platforms">
-            <div class="info-label">🚉 站台数量</div>
-            <div class="info-value" id="val-platforms">0</div>
-        </div>
-        <div class="info-card tracks">
-            <div class="info-label">🛤️ 轨道长度</div>
-            <div class="info-value" id="val-tracks">0 格</div>
-        </div>
-        <div class="info-card trains">
-            <div class="info-label">🚂 运营列车</div>
-            <div class="info-value" id="val-trains">0</div>
-        </div>
-        <div class="info-card income">
-            <div class="info-label">💵 收入/分</div>
-            <div class="info-value" id="val-income">¥0</div>
-        </div>
-    </div>
-    
-    <!-- 底部状态栏 -->
-    <div class="bottom-bar">
-        <span class="mode-indicator mode-build" id="current-mode">🏗️ 建造模式</span>
-        <span style="color:#7f8c8d;">|</span>
-        <span id="mode-desc">点击空地建造站台 / 选择轨道工具后拖拽绘制</span>
-    </div>
-    
-    <!-- 模式提示 -->
-    <div class="mode-hint-overlay" id="mode-hint" style="display:none;">
-        <div class="mode-hint-text" id="hint-big-text">点击地面放置站台</div>
-    </div>
-    
-    <!-- 操作提示 -->
-    <div class="controls-hint">
-        🖱️ 左键: 建造/选择<br>
-        🔄 滚轮: 缩放<br>
-        ⌨️ WASD: 移动<br>
-        🗑️ Delete: 取消当前操作
-    </div>
-    
-    <!-- 通知容器 -->
-    <div id="notif-container"></div>
+    <div class="money-box"><span>💰</span><span class="money-val" id="moneytxt">¥5,000</span></div>
 </div>
 
+<div class="toolbar">
+    <div class="toolbar-title">🔧 建造工具</div>
+    <button class="tool-btn active" id="btn-plat" onclick="setTool('plat')">
+        <span>🚉 建造站台</span><span class="cost-tag">¥800</span>
+    </button>
+    <button class="tool-btn" id="btn-trk" onclick="setTool('trk')">
+        <span>🛤️ 铺设轨道</span><span class="cost-tag">¥50/格</span>
+    </button>
+    <button class="tool-btn" id="btn-del" onclick="setTool('del')">
+        <span>🗑️ 删除</span><span style="color:#e74c3c;font-size:10px">返50%</span>
+    </button>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1)">
+        <div class="toolbar-title">🎮 其他</div>
+        <button class="tool-btn" id="btn-view" onclick="setTool('view')">
+            <span>👁️ 观看模式</span><span style="color:#95a5a6;font-size:10px">自由视角</span>
+        </button>
+        <button class="tool-btn" onclick="addTrain()">
+            <span>🚂 发送列车</span><span style="color:#3498db;font-size:10px">免费</span>
+        </button>
+    </div>
+</div>
+
+<div class="info-panel">
+    <div class="info-card"><div class="info-label">🚉 站台</div><div class="info-val" id="nplat" style="color:#3498DB">0</div></div>
+    <div class="info-card"><div class="info-label">🛤️ 轨道</div><div class="info-val" id="ntrk" style="color:#E67E22">0格</div></div>
+    <div class="info-card"><div class="info-label">🚂 列车</div><div class="info-val" id="ntrain" style="color:#E74C3C">0</div></div>
+    <div class="info-card"><div class="info-label">💵 收入/分</div><div class="info-val" id="income" style="color:#27AE60">¥0</div></div>
+</div>
+
+<div class="statusbar">
+    <span class="mode-badge mode-build" id="modetag">🏗️ 建造站台</span>
+    <span id="modedesc">点击地图任意位置建造</span>
+</div>
+
+<div class="big-hint" id="bighint" style="display:none">📍 点击地面</div>
+
+<div class="hint">
+    🖱️ 左键:操作 | 🔄 滚轮:缩放<br>
+    ⌨️ WASD:移动 | 空格:暂停
+</div>
+
+<div id="notifbox"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-
 <script>
-// ============================================
-// 🔧 Railway Builder v1.0 - 类天际线风格
-// ============================================
-
-// ==================== 配置 ====================
-const CONFIG = {
-    GRID_SIZE: 5,                  // 每个网格单元大小
-    MAP_WIDTH: 120,               // 地图宽度（格子数）
-    MAP_DEPTH: 80,                // 地图深度（格子数）
-    TIME_SCALE: 60,
-    MAX_TRAINS: 30,
+// ===== 配置 =====
+const GS = {
+    GRID: 5,
+    MW: 120, MD: 80,
+    COST_PLAT: 800,
+    COST_TRK: 50,
+    MONEY: 5000,
+    SPD: 1, PAUSED: false,
+    TOOL: 'plat',
+    timeMin: 480, day: 1,
     
-    // 成本
-    COSTS: {
-        platform: 800,
-        trackPerCell: 50,
-        passage: 300,
-        upgradePlatform: 500,
-    },
+    plats: [], trks: [], trains: [],
+    platMeshes: {}, trkMeshes: {}, trainMeshes: {},
+    nextId: { plat:1, trk:1, train:1 },
     
-    // 收入
-    INCOME: {
-        perPlatform: 12,
-        perTrackCell: 2,
-        perTrain: 20,
-        dayBonus: 1.3,
-        nightBonus: 0.5,
-    },
-};
-
-const TRAIN_TYPES = [
-    { type: 'normal', name: '普速', color: 0x27AE60, speed: 1.0, length: 3 },
-    { type: 'fast', name: '快速', color: 0x3498DB, speed: 1.6, length: 4 },
-    { type: 'bullet', name: '动车', color: 0xE74C3C, speed: 2.3, length: 6 },
-    { type: 'hsr', name: '高铁', color: 0xF39C12, speed: 3.0, length: 8 },
-];
-
-// ==================== 游戏状态 ====================
-const GameState = {
-    money: 5000,
-    totalIncome: 0,
-    
-    timeMinutes: 480,
-    day: 1,
-    speedMultiplier: 1,
-    paused: false,
-    
-    currentTool: 'platform',     // platform | track | passage | delete | view
-    
-    // 建筑物数据
-    platforms: [],               // [{id, gridX, gridZ, level, mesh}]
-    tracks: [],                  // [{id, points: [{x,z}], mesh}]
-    passages: [],                // [{id, fromPlat, toPlat, mesh}]
-    
-    // 列车
-    trains: [],
-    trainMeshes: {},
-    nextTrainId: 1,
-    
-    // 轨道入口（固定位置）
-    trackEntries: [
-        { x: -CONFIG.MAP_WIDTH/2 * CONFIG.GRID_SIZE, z: 0, side: 'left' },
-        { x: CONFIG.MAP_WIDTH/2 * CONFIG.GRID_SIZE, z: 0, side: 'right' },
+    // 轨道入口
+    entries: [
+        { x: -300, z: 0, label:'← 西' },
+        { x: 300, z: 0, label:'东 →' }
     ],
     
-    // 绘制状态
-    isDrawingTrack: false,
-    drawStartPoint: null,
-    currentTrackPoints: [],
-    previewLine: null,
-    previewMesh: null,
-    
-    // 引导
-    tutorialComplete: false,
-    hasBuiltFirstPlatform: false,
+    drawing: false,
+    drawPts: [],
+    previewLine: null
 };
 
-let scene, camera, renderer, clock;
-let ambientLight, dirLight;
+let scene, cam, renderer, clock;
+let ground;
+let raycaster = new THREE.Raycaster();
+let mouseV = new THREE.Vector2();
 
 // 相机控制
-let cameraTarget = new THREE.Vector3(0, 0, 0);
-let cameraTheta = Math.PI / 4;
-let cameraPhi = Math.PI / 3;
-let cameraDistance = 140;
-let isDragging = false;
-let lastMouseX = 0, lastMouseY = 0;
+let cTarget = new THREE.Vector3(0,0,0);
+let cTheta = Math.PI/4, cPhi = Math.PI/3, cDist = 140;
+let dragging = false, lastMX=0, lastMY=0;
 
-// Raycaster 用于点击检测
-let raycaster = new THREE.Raycaster();
-let mouse = new THREE.Vector2();
+// ===== 工具函数 =====
+function clamp(a,b,c){return Math.max(b,Math.min(c,a))}
+function pad(n){return String(Math.floor(n)).padStart(2,'0')}
+function fmtMoney(n){
+    if(Math.abs(n)>=10000) return '¥'+(n/10000).toFixed(1)+'万';
+    return '¥'+Math.floor(n).toLocaleString();
+}
+function toHHMM(m){return pad(Math.floor(m)/60%24)+':'+pad(m%60)}
 
-// 地面用于射线检测
-let groundPlane;
-
-// ==================== 工具函数 ====================
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-
-function padZero(n) { return String(Math.floor(n)).padStart(2, '0'); }
-
-function formatMoney(n) {
-    if (Math.abs(n) >= 10000) return '¥' + (n/10000).toFixed(1) + '万';
-    return '¥' + Math.floor(n).toLocaleString();
+function worldToGrid(p){
+    return{x:Math.round((p.x+GS.MW*GS.GRID/2)/GS.GRID),z:Math.round((p.z+GS.MD*GS.GRID/2)/GS.GRID)}
+}
+function gridToWorld(g){
+    return{x:g.x*GS.GRID-GS.MW*GS.GRID/2,z:g.z*GS.GRID-GS.MD*GS.GRID/2}
 }
 
-function minutesToHHMM(m) {
-    const h = Math.floor(Math.floor(m)/60)%24;
-    const mi = Math.floor(m)%60;
-    return `${padZero(h)}:${padZero(mi)}`;
+function notify(msg,type='ok'){
+    const b=document.getElementById('notifbox');
+    const n=document.createElement('div');
+    n.className='notif'+(type==='err'?' err':type==='info'?' info':'');
+    n.textContent=msg;
+    b.appendChild(n);
+    requestAnimationFrame(()=>n.classList.add('show'));
+    setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),300)},3000);
 }
 
-function showNotification(msg, type='success') {
-    const c = document.getElementById('notif-container');
-    const n = document.createElement('div');
-    n.className = `notification ${type}`;
-    n.textContent = msg;
-    c.appendChild(n);
-    requestAnimationFrame(() => n.classList.add('show'));
-    setTimeout(() => { n.classList.remove('show'); setTimeout(()=>n.remove(),400); }, 3500);
-}
-
-function worldToGrid(worldPos) {
-    return {
-        x: Math.round((worldPos.x + CONFIG.MAP_WIDTH*CONFIG.GRID_SIZE/2) / CONFIG.GRID_SIZE),
-        z: Math.round((worldPos.z + CONFIG.MAP_DEPTH*CONFIG.GRID_SIZE/2) / CONFIG.GRID_SIZE)
-    };
-}
-
-function gridToWorld(gridPos) {
-    return {
-        x: gridPos.x * CONFIG.GRID_SIZE - CONFIG.MAP_WIDTH*CONFIG.GRID_SIZE/2,
-        z: gridPos.z * CONFIG.GRID_SIZE - CONFIG.MAP_DEPTH*CONFIG.GRID_SIZE/2
-    };
-}
-
-// ==================== Three.js 场景初始化 ====================
-function initScene() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 150, 450);
-
-    const aspect = window.innerWidth/window.innerHeight;
-    const vs = 90;
-    camera = new THREE.OrthographicCamera(-vs*aspect, vs*aspect, vs, -vs, 0.1, 1000);
-    updateCameraPosition();
-
-    renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+// ===== Three.js 初始化 =====
+function initScene(){
+    scene=new THREE.Scene();
+    scene.background=new THREE.Color(0x87CEEB);
+    scene.fog=new THREE.Fog(0x87CEEB,150,450);
+    
+    const asp=window.innerWidth/window.innerHeight;
+    cam=new THREE.OrthographicCamera(-90*asp,90*asp,90,-90,0.1,1000);
+    updateCam();
+    
+    renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.shadowMap.enabled=true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-    clock = new THREE.Clock();
-
-    ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    dirLight = new THREE.DirectionalLight(0xfffaf0, 0.8);
-    dirLight.position.set(60, 100, 50);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    scene.add(dirLight);
-
+    
+    clock=new THREE.Clock();
+    
+    scene.add(new THREE.AmbientLight(0xffffff,0.5));
+    const dl=new THREE.DirectionalLight(0xfffaf0,0.8);
+    dl.position.set(60,100,50);dl.castShadow=true;
+    dl.shadow.mapSize.set(2048,2048);
+    scene.add(dl);
+    
     createGround();
-    createTrackEntryMarkers();
+    createEntries();
     
-    initOrbitControls();
-    window.addEventListener('resize', onWindowResize);
-    renderer.domElement.addEventListener('click', onCanvasClick);
-    renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
-    renderer.domElement.addEventListener('mousedown', onCanvasMouseDown);
-    renderer.domElement.addEventListener('mouseup', onCanvasMouseUp);
+    // 事件
+    window.addEventListener('resize',onResize);
+    renderer.domElement.addEventListener('click',onClick);
+    renderer.domElement.addEventListener('mousemove',onMove);
+    renderer.domElement.addEventListener('mousedown',onDown);
+    renderer.domElement.addEventListener('mouseup',onUp);
+    
+    initControls();
 }
 
-function createGround() {
-    // 主地面
-    const gw = CONFIG.MAP_WIDTH * CONFIG.GRID_SIZE;
-    const gd = CONFIG.MAP_DEPTH * CONFIG.GRID_SIZE;
+function createGround(){
+    const gw=GS.MW*GS.GRID, gd=GS.MD*GS.GRID;
+    const g=new THREE.PlaneGeometry(gw,gd);
+    const m=new THREE.MeshLambertMaterial({color:0x3d7a3d,transparent:true,opacity:0.9});
+    ground=new THREE.Mesh(g,m);
+    ground.rotation.x=-Math.PI/2;
+    ground.receiveShadow=true;
+    ground.userData.ground=true;
+    scene.add(ground);
     
-    const geo = new THREE.PlaneGeometry(gw, gd);
-    const mat = new THREE.MeshLambertMaterial({ 
-        color: 0x3d7a3d,
-        transparent: true,
-        opacity: 0.9
-    });
-    groundPlane = new THREE.Mesh(geo, mat);
-    groundPlane.rotation.x = -Math.PI/2;
-    groundPlane.receiveShadow = true;
-    groundPlane.userData.isGround = true;
-    scene.add(groundPlane);
-
-    // 网格线（辅助）
-    const gridHelper = new THREE.GridHelper(gw, CONFIG.MAP_WIDTH, 0x444444, 0x333333);
-    gridHelper.position.y = 0.01;
-    scene.add(gridHelper);
-
-    // 边界指示
-    const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(gw, 0.3, gd));
-    const borderMat = new THREE.LineBasicMaterial({ color: 0xF39C12, linewidth: 2 });
-    const border = new THREE.LineSegments(borderGeo, borderMat);
-    border.position.y = 0.15;
-    scene.add(border);
+    // 网格
+    const grid=new THREE.GridHelper(gw,GS.MW,0x444444,0x333333);
+    grid.position.y=0.01;
+    scene.add(grid);
+    
+    // 边框
+    const edges=new THREE.EdgesGeometry(new THREE.BoxGeometry(gw,0.3,gd));
+    const line=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0xF39C12}));
+    line.position.y=0.15;
+    scene.add(line);
 }
 
-function createTrackEntryMarkers() {
-    GameState.trackEntries.forEach((entry, idx) => {
-        const group = new THREE.Group();
+function createEntries(){
+    GS.entries.forEach((e,i)=>{
+        const g=new THREE.Group();
         
-        // 入口平台
-        const platGeo = new THREE.BoxGeometry(8, 0.5, 12);
-        const platMat = new THREE.MeshLambertMaterial({ color: 0x95A5A6 });
-        const plat = new THREE.Mesh(platGeo, platMat);
-        plat.position.set(entry.x, 0.25, entry.z);
-        plat.castShadow = true;
-        group.add(plat);
+        // 平台
+        const p=new THREE.Mesh(new THREE.BoxGeometry(8,0.5,12),new THREE.MeshLambertMaterial({color:0x95A5A6}));
+        p.position.set(e.x,0.25,e.z);p.castShadow=true;
+        g.add(p);
         
-        // 入口标志牌
-        const signGeo = new THREE.BoxGeometry(4, 3, 0.3);
-        const signMat = new THREE.MeshLambertMaterial({ color: entry.side==='left'?0x3498DB:0xE74C3C });
-        const sign = new THREE.Mesh(signGeo, signMat);
-        sign.position.set(entry.x + (entry.side==='left'?3:-3), 2.5, entry.z + 5);
-        group.add(sign);
+        // 标志牌
+        const s=new THREE.Mesh(new THREE.BoxGeometry(4,3,0.3),new THREE.MeshLambertMaterial({color:i===0?0x3498DB:0xE74C3C}));
+        s.position.set(e.x+(i===0?3:-3),2.5,e.z+5);
+        g.add(s);
         
         // 文字
-        const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0,0,128,64);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign='center';
-        ctx.fillText(entry.side==='left'?'← 西':'东 →', 64, 42);
-        const tex = new THREE.CanvasTexture(canvas);
-        const txtGeo = new THREE.PlaneGeometry(3.5, 1.8);
-        const txtMat = new THREE.MeshBasicMaterial({ map:tex, transparent:true });
-        const txt = new THREE.Mesh(txtGeo, txtMat);
-        txt.position.set(entry.x + (entry.side==='left'?3:-3), 2.51, entry.z + 5.01);
-        group.add(txt);
+        const cv=document.createElement('canvas');cv.width=128;cv.height=64;
+        const cx=cv.getContext('2d');
+        cx.fillStyle='#1a1a2e';cx.fillRect(0,0,128,64);
+        cx.fillStyle='#fff';cx.font='bold 24px Arial';cx.textAlign='center';
+        cx.fillText(e.label,64,42);
+        const tx=new THREE.CanvasTexture(cv);
+        const t=new THREE.Mesh(new THREE.PlaneGeometry(3.5,1.8),new THREE.MeshBasicMaterial({map:tx,transparent:true}));
+        t.position.set(e.x+(i===0?3:-3),2.51,e.z+5.01);
+        g.add(t);
         
-        // 铁轨预览（几节）
-        for (let i = 0; i < 3; i++) {
-            const railGeo = new THREE.BoxGeometry(6, 0.15, 0.3);
-            const railMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
-            const r1 = new THREE.Mesh(railGeo, railMat);
-            r1.position.set(entry.x + (entry.side==='left'?4+i*7:-4-i*7), 0.2, entry.z - 1.5);
-            group.add(r1);
-            const r2 = new THREE.Mesh(railGeo, railMat);
-            r2.position.set(entry.x + (entry.side==='left'?4+i*7:-4-i*7), 0.2, entry.z + 1.5);
-            group.add(r2);
+        // 预置轨道
+        for(let j=0;j<3;j++){
+            const r=new THREE.Mesh(new THREE.BoxGeometry(6,0.15,0.3),new THREE.MeshLambertMaterial({color:0x666666}));
+            r.position.set(e.x+(i===0?4+j*7:-4-j*7),0.2,e.z-1.5);
+            g.add(r);
+            const r2=r.clone();r2.position.z=e.z+1.5;
+            g.add(r2);
         }
         
-        group.userData.isTrackEntry = true;
-        group.userData.entryIndex = idx;
-        scene.add(group);
+        scene.add(g);
     });
 }
 
-// ==================== 建造功能：站台 ====================
-function createPlatformMesh(gridX, gridZ, level = 1) {
-    const group = new THREE.Group();
-    const worldPos = gridToWorld({x: gridX, z: gridZ});
-    
-    // 站台尺寸：宽40深10
-    const w = 40, d = 10;
+// ===== 建造：站台 =====
+function makePlatMesh(gx,gz){
+    const wp=gridToWorld({x:gx,z:gz});
+    const grp=new THREE.Group(), w=40,d=10;
     
     // 主体
-    const baseGeo = new THREE.BoxGeometry(w, 1.2, d);
-    const baseMat = new THREE.MeshLambertMaterial({ color: 0x95A5A6 });
-    const base = new THREE.Mesh(baseGeo, baseMat);
-    base.position.set(worldPos.x, 0.6, worldPos.z);
-    base.castShadow = true; base.receiveShadow = true;
-    group.add(base);
+    const base=new THREE.Mesh(new THREE.BoxGeometry(w,1.2,d),new THREE.MeshLambertMaterial({color:0x95A5A6}));
+    base.position.set(wp.x,0.6,wp.z);base.castShadow=true;base.receiveShadow=true;
+    grp.add(base);
     
     // 支柱
-    const pillarGeo = new THREE.BoxGeometry(0.6, 4, 0.6);
-    const pillarMat = new THREE.MeshLambertMaterial({ color: 0x7F8C8D });
-    [-w/2+3, -w/2+12, w/2-12, w/2-3].forEach(px => {
-        const p = new THREE.Mesh(pillarGeo, pillarMat);
-        p.position.set(worldPos.x+px, 3.2, worldPos.z);
-        p.castShadow = true;
-        group.add(p);
+    [-w/2+3,-w/2+12,w/2-12,w/2-3].forEach(px=>{
+        const p=new THREE.Mesh(new THREE.BoxGeometry(0.6,4,0.6),new THREE.MeshLambertMaterial({color:0x7F8C8D}));
+        p.position.set(wp.x+px,3.2,wp.z);p.castShadow=true;
+        grp.add(p);
     });
     
     // 顶棚
-    const roofGeo = new THREE.BoxGeometry(w+2, 0.4, d+2);
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0xBDC3C7, transparent:true, opacity:0.9 });
-    const roof = new THREE.Mesh(roofGeo, roofMat);
-    roof.position.set(worldPos.x, 5.4, worldPos.z);
-    roof.castShadow = true;
-    group.add(roof);
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(w+2,0.4,d+2),new THREE.MeshLambertMaterial({color:0xBDC3C7,transparent:true,opacity:0.9}));
+    roof.position.set(wp.x,5.4,wp.z);roof.castShadow=true;
+    grp.add(roof);
     
-    // 安全黄线
-    const lineGeo = new THREE.BoxGeometry(w-2, 0.08, 0.4);
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xF39C12 });
-    const sl = new THREE.Mesh(lineGeo, lineMat);
-    sl.position.set(worldPos.x, 1.21, worldPos.z+d/2-1);
-    group.add(sl);
+    // 黄线
+    const yl=new THREE.Mesh(new THREE.BoxGeometry(w-2,0.08,0.4),new THREE.MeshBasicMaterial({color:0xF39C12}));
+    yl.position.set(wp.x,1.21,wp.z+d/2-1);
+    grp.add(yl);
     
-    // 站名牌
-    const num = GameState.platforms.length + 1;
-    const c = document.createElement('canvas');
-    c.width=128;c.height=64;
-    const cx=c.getContext('2d');
+    // 编号牌
+    const num=GS.plats.length+1;
+    const cv=document.createElement('canvas');cv.width=128;cv.height=64;
+    const cx=cv.getContext('2d');
     cx.fillStyle='#1a1a2e';cx.fillRect(0,0,128,64);
     cx.fillStyle='#F1C40F';cx.font='bold 32px Arial';cx.textAlign='center';
-    cx.fillText(`${num}号站台`,64,42);
-    const t=new THREE.CanvasTexture(c);
-    const sg=new THREE.PlaneGeometry(5,2.5);
-    const sm=new THREE.MeshBasicMaterial({map:t,transparent:true});
-    const s=new THREE.Mesh(sg,sm);
-    s.position.set(worldPos.x+w/2-6,4,worldPos.z+d/2+1.5);
-    group.add(s);
+    cx.fillText(num+'号站台',64,42);
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(5,2.5),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),transparent:true}));
+    sign.position.set(wp.x+w/2-6,4,wp.z+d/2+1.5);
+    grp.add(sign);
     
-    group.position.copy(base.position);
-    group.userData.type = 'platform';
-    group.userData.gridX = gridX;
-    group.userData.gridZ = gridZ;
-    group.userData.platformId = GameState.platforms.length;
-    
-    return group;
+    grp.userData={type:'plat',gx:gz,gz:gz,id:GS.plats.length};
+    return grp;
 }
 
-function buildPlatformAt(gridX, gridZ) {
-    if (GameState.money < CONFIG.COSTS.platform) {
-        showNotification(`资金不足！需要 ${formatMoney(CONFIG.COSTS.platform)}`, 'error');
-        return false;
+function buildPlat(gx,gz){
+    if(GS.MONEY<GS.COST_PLAT){notify(`资金不足！需要 ${fmtMoney(GS.COST_PLAT)}`,'err');return}
+    
+    if(GS.plats.some(p=>Math.abs(p.gx-gx)<9&&Math.abs(p.gz-gz)<4)){
+        notify('位置重叠','info');return
     }
     
-    // 检查是否重叠
-    const overlap = GameState.platforms.some(p => 
-        Math.abs(p.gridX - gridX) < 9 && Math.abs(p.gridZ - gridZ) < 4
-    );
-    if (overlap) {
-        showNotification('此位置与其他建筑重叠', 'warning');
-        return false;
-    }
-    
-    // 扣款并建造
-    GameState.money -= CONFIG.COSTS.platform;
-    
-    const mesh = createPlatformMesh(gridX, gridZ);
+    GS.MONEY-=GS.COST_PLAT;
+    const mesh=makePlatMesh(gx,gz);
     scene.add(mesh);
     
-    GameState.platforms.push({
-        id: GameState.platforms.length,
-        gridX: gridX,
-        gridZ: gridZ,
-        level: 1,
-        mesh: mesh
+    GS.plats.push({id:GS.nextId.plat++,gx,gz,mesh});
+    GS.platMeshes[GS.plats[GS.plats.length-1].id]=mesh;
+    
+    updUI();
+    notify(`✅ ${GS.plats.length}号站台建成！`,'ok');
+    
+    if(GS.plats.length===1){
+        setTimeout(()=>notify('💡 提示：选择【铺设轨道】从入口画线到站台','info'),1500);
+    }
+}
+
+// ===== 建造：轨道 =====
+function startDraw(pt){
+    if(GS.MONEY<GS.COST_TRK){notify('资金不足','err');return}
+    GS.drawing=true;
+    GS.drawPts=[pt.clone()];
+    
+    const mat=new THREE.LineDashedMaterial({color:0xF39C12,dashSize:1,gapSize:0.5});
+    const geo=new THREE.BufferGeometry().setFromPoints([pt.clone(),pt.clone()]);
+    GS.previewLine=new THREE.Line(geo,mat);
+    scene.add(GS.previewLine);
+    
+    setModeDesc('正在绘制轨道...');
+}
+
+function moveDraw(pt){
+    if(!GS.drawing||!GS.previewLine)return;
+    GS.drawPts.push(pt.clone());
+    const sampled=[];
+    for(let i=0;i<GS.drawPts.length;i+=3)sampled.push(GS.drawPts[i]);
+    if(sampled.length<2)sampled.push(GS.drawPts[GS.drawPts.length-1]);
+    GS.previewLine.geometry.dispose();
+    GS.previewLine.geometry=new THREE.BufferGeometry().setFromPoints(sampled);
+}
+
+function endDraw(pt){
+    if(!GS.drawing)return;
+    GS.drawPts.push(pt.clone());
+    
+    let len=0;
+    for(let i=1;i<GS.drawPts.length;i++){
+        const dx=GS.drawPts[i].x-GS.drawPts[i-1].x;
+        const dz=GS.drawPts[i].z-GS.drawPts[i-1].z;
+        len+=Math.sqrt(dx*dx+dz*dz);
+    }
+    
+    const cells=Math.ceil(len/GS.GRID);
+    const cost=cells*GS.COST_TRK;
+    
+    if(cost>GS.MONEY){notify(`资金不足！需要 ${fmtMoney(cost)}`,'err');cancelDraw();return}
+    
+    GS.MONEY-=cost;
+    makeTrackMesh(GS.drawPts);
+    
+    GS.trks.push({
+        id:GS.nextId.trk++,
+        pts:GS.drawPts.map(p=>({x:p.x,z:p.z})),
+        cells,len,mesh:null
     });
+    cancelDraw();
+    updUI();
+    notify(`✅ 轨道完成！${cells}格，花费${fmtMoney(cost)}`,'ok');
     
-    updateUI();
-    showNotification(`✅ ${GameState.platforms.length}号站台建造完成！`, 'success');
-    
-    if (!GameState.hasBuiltFirstPlatform) {
-        GameState.hasBuiltFirstPlatform = true;
-        showNotification('💡 提示：现在选择【铺设轨道】工具，从左侧/右侧入口画线连接到站台', 'info');
+    if(GS.trks.length>0&&GS.plats.length>0&&GS.trains.length<3){
+        setTimeout(addTrain,1200);
     }
-    
-    return true;
 }
 
-// ==================== 建造功能：轨道 ====================
-function startTrackDraw(startWorldPos) {
-    if (GameState.money < CONFIG.COSTS.trackPerCell) {
-        showNotification(`资金不足！铺设轨道每格 ${formatMoney(CONFIG.COSTS.trackPerCell)}`, 'error');
-        return;
-    }
-    
-    GameState.isDrawingTrack = true;
-    GameState.drawStartPoint = startWorldPos.clone();
-    GameState.currentTrackPoints = [startWorldPos.clone()];
-    
-    // 创建预览线
-    const mat = new THREE.LineDashedMaterial({ 
-        color: 0xF39C12, 
-        dashSize: 1, 
-        gapSize: 0.5,
-        linewidth: 2
-    });
-    const geo = new THREE.BufferGeometry().setFromPoints([startWorldPos.clone(), startWorldPos.clone()]);
-    GameState.previewLine = new THREE.Line(geo, mat);
-    scene.add(GameState.previewLine);
-    
-    updateModeUI('正在绘制轨道...');
+function cancelDraw(){
+    GS.drawing=false;GS.drawPts=[];
+    if(GS.previewLine){scene.remove(GS.previewLine);GS.previewLine.geometry.dispose();GS.previewLine=null}
+    setModeDesc('');
 }
 
-function updateTrackDraw(currentWorldPos) {
-    if (!GameState.isDrawingTrack || !GameState.previewLine) return;
-    
-    GameState.currentTrackPoints.push(currentWorldPos.clone());
-    
-    // 采样减少点数（每隔几个取一个）
-    const sampled = [];
-    for (let i = 0; i < GameState.currentTrackPoints.length; i += 3) {
-        sampled.push(GameState.currentTrackPoints[i]);
-    }
-    if (sampled.length < 2) sampled.push(GameState.currentTrackPoints[GameState.currentTrackPoints.length-1]);
-    
-    const geo = new THREE.BufferGeometry().setFromPoints(sampled);
-    GameState.previewLine.geometry.dispose();
-    GameState.previewLine.geometry = geo;
-}
-
-function finishTrackDraw(endWorldPos) {
-    if (!GameState.isDrawingTrack) return;
-    
-    GameState.currentTrackPoints.push(endWorldPos.clone());
-    
-    // 计算总长度和费用
-    let totalLength = 0;
-    for (let i = 1; i < GameState.currentTrackPoints.length; i++) {
-        const dx = GameState.currentTrackPoints[i].x - GameState.currentTrackPoints[i-1].x;
-        const dz = GameState.currentTrackPoints[i].z - GameState.currentTrackPoints[i-1].z;
-        totalLength += Math.sqrt(dx*dx + dz*dz);
-    }
-    
-    const cellCount = Math.ceil(totalLength / CONFIG.GRID_SIZE);
-    const cost = cellCount * CONFIG.COSTS.trackPerCell;
-    
-    if (cost > GameState.money) {
-        showNotification(`资金不足！此轨道需要 ${formatMoney(cost)}`, 'error');
-        cancelTrackDraw();
-        return;
-    }
-    
-    // 扣款
-    GameState.money -= cost;
-    
-    // 创建实际轨道模型
-    createTrackMesh(GameState.currentTrackPoints);
-    
-    // 保存数据
-    GameState.tracks.push({
-        id: GameState.tracks.length,
-        points: GameState.currentTrackPoints.map(p => ({x:p.x, z:p.z})),
-        length: totalLength,
-        cellCount: cellCount,
-        mesh: null // 在createTrackMesh中设置
-    });
-    
-    cancelTrackDraw();
-    updateUI();
-    showNotification(`✅ 轨道铺设完成！长度 ${cellCount} 格，花费 ${formatMoney(cost)}`, 'success');
-    
-    // 如果有站台且轨道连通，自动添加列车
-    checkAndAddTrains();
-}
-
-function cancelTrackDraw() {
-    GameState.isDrawingTrack = false;
-    GameState.drawStartPoint = null;
-    GameState.currentTrackPoints = [];
-    
-    if (GameState.previewLine) {
-        scene.remove(GameState.previewLine);
-        GameState.previewLine.geometry.dispose();
-        GameState.previewLine = null;
-    }
-    
-    updateModeUI('');
-}
-
-function createTrackMesh(points) {
-    const group = new THREE.Group();
-    
-    // 用管道几何体表示轨道
-    for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i];
-        const p2 = points[i+1];
+function makeTrackMesh(pts){
+    const grp=new THREE.Group();
+    for(let i=0;i<pts.length-1;i++){
+        const p1=pts[i],p2=pts[i+1];
+        const dist=Math.sqrt((p2.x-p1.x)**2+(p2.z-p1.z)**2);
+        const mid={x:(p1.x+p2.x)/2,z:(p1.z+p2.z)/2};
+        const ang=Math.atan2(p2.z-p1.z,p2.x-p1.x);
         
-        // 轨道床
-        const dist = Math.sqrt((p2.x-p1.x)**2 + (p2.z-p1.z)**2);
-        const mid = { x: (p1.x+p2.x)/2, z: (p1.z+p2.z)/2 };
-        const angle = Math.atan2(p2.z - p1.z, p2.x - p1.x);
+        // 道床
+        const bed=new THREE.Mesh(new THREE.BoxGeometry(dist,0.25,2.5),new THREE.MeshLambertMaterial({color:0x8B7355}));
+        bed.position.set(mid.x,0.125,mid.z);bed.rotation.y=-ang;bed.castShadow=true;
+        grp.add(bed);
         
-        const bedGeo = new THREE.BoxGeometry(dist, 0.25, 2.5);
-        const bedMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
-        const bed = new THREE.Mesh(bedGeo, bedMat);
-        bed.position.set(mid.x, 0.125, mid.z);
-        bed.rotation.y = -angle;
-        bed.castShadow = true;
-        group.add(bed);
-        
-        // 两条铁轨
-        [-0.8, 0.8].forEach(offset => {
-            const railGeo = new THREE.BoxGeometry(dist, 0.12, 0.15);
-            const railMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
-            const rail = new THREE.Mesh(railGeo, railMat);
-            rail.position.set(mid.x, 0.28, mid.z + offset);
-            rail.rotation.y = -angle;
-            group.add(rail);
+        // 双轨
+        [-0.8,0.8].forEach(off=>{
+            const rail=new THREE.Mesh(new THREE.BoxGeometry(dist,0.12,0.15),new THREE.MeshLambertMaterial({color:0x666666}));
+            rail.position.set(mid.x,0.28,mid.z+off);rail.rotation.y=-ang;
+            grp.add(rail);
         });
         
         // 枕木
-        const sleeperCount = Math.max(2, Math.floor(dist / 3));
-        for (let j = 0; j <= sleeperCount; j++) {
-            const t = j / sleeperCount;
-            const sx = p1.x + (p2.x-p1.x)*t;
-            const sz = p1.z + (p2.z-p1.z)*t;
-            
-            const sleeperGeo = new THREE.BoxGeometry(0.25, 0.12, 2.2);
-            const sleeperMat = new THREE.MeshLambertMaterial({ color: 0x5D4037 });
-            const sleeper = new THREE.Mesh(sleeperGeo, sleeperMat);
-            sleeper.position.set(sx, 0.22, sz);
-            sleeper.rotation.y = -angle;
-            group.add(sleeper);
+        const cnt=Math.max(2,Math.floor(dist/3));
+        for(let j=0;j<=cnt;j++){
+            const t=j/cnt;
+            const sx=p1.x+(p2.x-p1.x)*t,sz=p1.z+(p2.z-p1.z)*t;
+            const sl=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.12,2.2),new THREE.MeshLambertMaterial({color:0x5D4037}));
+            sl.position.set(sx,0.22,sz);sl.rotation.y=-ang;
+            grp.add(sl);
         }
     }
-    
-    group.userData.type = 'track';
-    scene.add(group);
-    
-    // 更新最后一条轨道记录
-    if (GameState.tracks.length > 0) {
-        GameState.tracks[GameState.tracks.length-1].mesh = group;
-    }
-    
-    return group;
+    grp.userData.type='track';
+    scene.add(grp);
+    if(GS.trks.length>0)GS.trks[GS.trks.length-1].mesh=grp;
+    return grp;
 }
 
-// ==================== 建造功能：人行通道 ====================
-function buildPassage(fromPlatId, toPlatId) {
-    if (GameState.money < CONFIG.COSTS.passage) {
-        showNotification(`资金不足！需要 ${formatMoney(CONFIG.COSTS.passage)}`, 'error');
-        return;
-    }
-    
-    const from = GameState.platforms.find(p=>p.id===fromPlatId);
-    const to = GameState.platforms.find(p=>p.id===toPlatId);
-    if (!from || !to) return;
-    
-    GameState.money -= CONFIG.COSTS.passage;
-    
-    const fw = gridToWorld({x:from.gridX, z:from.gridZ});
-    const tw = gridToWorld({x:to.gridX, z:to.gridZ});
-    
-    const group = new THREE.Group();
-    const bridgeGeo = new THREE.BoxGeometry(
-        Math.abs(tw.x-fw.x)+10, 1, 3
-    );
-    const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x95A5A6 });
-    const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
-    bridge.position.set((fw.x+tw.x)/2, 2, (fw.z+tw.z)/2);
-    bridge.castShadow = true;
-    group.add(bridge);
-    
-    // 栏杆
-    [-2, 2].forEach(zOff => {
-        const railGeo = new THREE.BoxGeometry(Math.abs(tw.x-fw.x)+8, 0.8, 0.15);
-        const railMat = new THREE.MeshLambertMaterial({ color: 0xF39C12 });
-        const r = new THREE.Mesh(railGeo, railMat);
-        r.position.set((fw.x+tw.x)/2, 2.8, (fw.z+tw.z)/2+zOff);
-        group.add(r);
-    });
-    
-    scene.add(group);
-    
-    GameState.passages.push({
-        id: GameState.passages.length,
-        from: fromPlatId,
-        to: toPlatId,
-        mesh: group
-    });
-    
-    updateUI();
-    showNotification('✅ 人行通道建造完成！', 'success');
-}
-
-// ==================== 列车系统 ====================
-function createTrainMesh(trainData) {
-    const group = new THREE.Group();
-    const tt = TRAIN_TYPES.find(t=>t.type===trainData.type);
+// ===== 列车 =====
+function makeTrainMesh(type){
+    const grp=new THREE.Group();
+    const colors=[0x27AE60,0x3498DB,0xE74C3C,0xF39C12];
+    const lens=[3,4,6,8];
+    const speeds=[1,1.6,2.3,3];
+    const ci=type||Math.floor(Math.random()*4);
+    const col=colors[ci],len=lens[ci],spd=speeds[ci];
     
     // 车头
-    const noseGeo = new THREE.ConeGeometry(1.6, 4.5, 8);
-    noseGeo.rotateZ(-Math.PI/2);
-    const noseMat = new THREE.MeshPhongMaterial({ color: tt.color, shininess:80 });
-    const nose = new THREE.Mesh(noseGeo, noseMat);
-    nose.position.set(tt.length*4+2.5, 1.8, 0);
-    nose.castShadow = true;
-    group.add(nose);
+    const nose=new THREE.Mesh(new THREE.ConeGeometry(1.6,4.5,8),new THREE.MeshPhongMaterial({col,shininess:80}));
+    nose.rotateZ(-Math.PI/2);nose.position.set(len*4+2.5,1.8,0);nose.castShadow=true;
+    grp.add(nose);
     
     // 车厢
-    const carGeo = new THREE.BoxGeometry(8, 3.2, 2.8);
-    const carMat = new THREE.MeshPhongMaterial({ color: tt.color, shininess:60 });
-    for (let i = 0; i < tt.length; i++) {
-        const car = new THREE.Mesh(carGeo, carMat);
-        car.position.set(-i*8.5-4, 1.6, 0);
-        car.castShadow = true;
-        group.add(car);
+    const car=new THREE.BoxGeometry(8,3.2,2.8);
+    const carMat=new THREE.MeshPhongMaterial({col,shininess:60});
+    for(let i=0;i<len;i++){
+        const c=new THREE.Mesh(car,carMat);
+        c.position.set(-i*8.5-4,1.6,0);c.castShadow=true;
+        grp.add(c);
         
         // 车窗
-        const winGeo = new THREE.BoxGeometry(7, 1.3, 0.1);
-        const winMat = new THREE.MeshBasicMaterial({ color:0xAED6F1, transparent:true, opacity:0.65 });
-        const win = new THREE.Mesh(winGeo, winMat);
-        win.position.set(-i*8.5-4, 2.4, 1.45);
-        group.add(win);
+        const w=new THREE.Mesh(new THREE.BoxGeometry(7,1.3,0.1),new THREE.MeshBasicMaterial({color:0xAED6F1,transparent:true,opacity:0.65}));
+        w.position.set(-i*8.5-4,2.4,1.45);
+        grp.add(w);
     }
     
-    return group;
+    return {mesh:grp,speed:spd};
 }
 
-function addTrainToSystem(trackData) {
-    if (GameState.trains.length >= CONFIG.MAX_TRAINS) {
-        showNotification('已达到最大列车数量', 'warning');
-        return;
-    }
+function addTrain(){
+    if(GS.trks.length===0){notify('请先铺设轨道！','info');return}
+    if(GS.trains.length>=30){notify('已达最大列车数','warning');return}
     
-    // 随机车型
-    const rand = Math.random();
-    let typeIdx = rand<0.4?0:(rand<0.7?1:(rand<0.9?2:3));
-    const trainType = TRAIN_TYPES[typeIdx];
+    const trk=GS.trks[Math.floor(Math.random()*GS.trks.length)];
+    const {mesh:speed}=makeTrainMesh();
     
-    const trainData = {
-        id: GameState.nextTrainId++,
-        type: trainType.type,
-        name: `${trainType.name}#${String(GameState.nextTrainId-1).padStart(3,'0')}`,
-        trackId: trackData?.id || null,
-        path: trackData ? trackData.points : null,
-        pathIndex: 0,
-        state: 'running',
-        progress: 0,
-        speed: trainType.speed,
-        mesh: null
+    const td={
+        id:GS.nextId.train++,
+        path:trk.pts,
+        idx:0,prog:0,state:'run',
+        speed,mesh
     };
     
-    trainData.mesh = createTrainMesh(trainData);
-    
-    // 设置初始位置（在路径起点）
-    if (trainData.path && trainData.path.length > 0) {
-        const startPos = trainData.path[0];
-        trainData.mesh.position.set(startPos.x, 0, startPos.z);
-        // 计算朝向
-        if (trainData.path.length > 1) {
-            const next = trainData.path[1];
-            const angle = Math.atan2(next.z-startPos.z, next.x-startPos.x);
-            trainData.mesh.rotation.y = angle + Math.PI/2;
+    if(td.path&&td.path[0]){
+        td.mesh.position.set(td.path[0].x,0,td.path[0].z);
+        if(td.path[1]){
+            const ang=Math.atan2(td.path[1].z-td.path[0].z,td.path[1].x-td.path[0].x);
+            td.mesh.rotation.y=ang+Math.PI/2;
         }
-    } else {
-        // 默认从左边进入
-        trainData.mesh.position.set(-80, 0, 0);
-        trainData.mesh.rotation.y = Math.PI/2;
+    }else{
+        td.mesh.position.set(-80,0,0);td.mesh.rotation.y=Math.PI/2;
     }
     
-    scene.add(trainData.mesh);
-    GameState.trainMeshes[trainData.id] = trainData.mesh;
-    GameState.trains.push(trainData);
+    scene.add(td.mesh);
+    GS.trainMeshes[td.id]=td.mesh;
+    GS.trains.push(td);
     
-    updateUI();
-    showNotification(`🚂 ${trainData.name} 已发车`, 'info');
+    updUI();
+    const names=['普速','快速','动车','高铁'];
+    notify(`🚂 ${names[Math.floor(Math.random()*4)]}#${String(td.id).padStart(3,'0')} 已发车`,'ok');
 }
 
-function addTrainManually() {
-    if (GameState.tracks.length === 0) {
-        showNotification('请先铺设轨道！', 'warning');
-        return;
-    }
-    
-    // 随机选择一条轨道
-    const track = GameState.tracks[Math.floor(Math.random()*GameState.tracks.length)];
-    addTrainToSystem(track);
-}
-
-function checkAndAddTrains() {
-    if (!GameState.hasBuiltFirstPlatform || GameState.tracks.length === 0) return;
-    
-    // 自动添加列车
-    setTimeout(() => {
-        if (GameState.trains.length < 3) {
-            addTrainManually();
+function updateTrains(dt){
+    const rmv=[];
+    GS.trains.forEach(t=>{
+        if(!t.mesh||!t.path||t.path.length<2)return;
+        t.prog+=0.012*t.speed*dt*60;
+        if(t.prog>=1){
+            t.idx++;t.prog=0;
+            if(t.idx>=t.path.length-1){t.state='done';rmv.push(t.id)}
         }
-    }, 1000);
-}
-
-function updateTrains(deltaTime) {
-    const toRemove = [];
-    
-    GameState.trains.forEach(train => {
-        if (!train.mesh || !train.path || train.path.length < 2) return;
-        
-        const speed = 0.012 * train.speed;
-        
-        switch (train.state) {
-            case 'running':
-                train.progress += speed * deltaTime * 60;
-                
-                if (train.progress >= 1) {
-                    train.pathIndex++;
-                    train.progress = 0;
-                    
-                    if (train.pathIndex >= train.path.length - 1) {
-                        train.state = 'finished';
-                        toRemove.push(train.id);
-                    }
-                }
-                
-                // 沿路径移动
-                const idx = Math.min(train.pathIndex, train.path.length - 2);
-                const p1 = train.path[idx];
-                const p2 = train.path[Math.min(idx+1, train.path.length-1)];
-                
-                train.mesh.position.x = lerp(p1.x, p2.x, train.progress);
-                train.mesh.position.z = lerp(p1.z, p2.z, train.progress);
-                
-                // 朝向
-                if (p2 && p1) {
-                    const angle = Math.atan2(p2.z-p1.z, p2.x-p1.x);
-                    train.mesh.rotation.y = angle + (train.path[0].x > train.path[train.path.length-1].x ? Math.PI/2 : -Math.PI/2);
-                }
-                break;
+        const i1=Math.min(t.idx,t.path.length-2),i2=Math.min(i1+1,t.path.length-1);
+        const p1=t.path[i1],p2=t.path[i2];
+        t.mesh.position.x=lerp(p1.x,p2.x,t.prog);
+        t.mesh.position.z=lerp(p1.z,p2.z,t.prog);
+        if(p2&&p1){
+            const ang=Math.atan2(p2.z-p1.z,p2.x-p1.x);
+            t.mesh.rotation.y=ang+(t.path[0].x>t.path[t.path.length-1].x?Math.PI/2:-Math.PI/2);
         }
     });
     
-    // 移除完成的列车
-    toRemove.forEach(id => {
-        const idx = GameState.trains.findIndex(t=>t.id===id);
-        if (idx !== -1) {
-            const t = GameState.trains[idx];
-            if (t.mesh) { scene.remove(t.mesh); delete GameState.trainMeshes[id]; }
-            GameState.trains.splice(idx, 1);
-            
-            // 补充新列车
-            if (Math.random() < 0.7 && GameState.tracks.length > 0) {
-                setTimeout(() => addTrainManually(), randomInt(3000, 8000));
-            }
+    rmv.forEach(id=>{
+        const idx=GS.trains.findIndex(t=>t.id===id);
+        if(idx!==-1){
+            const t=GS.trains[idx];
+            if(t.mesh){scene.remove(t.mesh);delete GS.trainMeshes[id]}
+            GS.trains.splice(idx,1);
+            if(Math.random()<0.7&&GS.trks.length>0)setTimeout(addTrain,randomInt(2000,6000));
         }
     });
 }
 
-function lerp(a,b,t){return a+(b-a)*t;}
+function lerp(a,b,t){return a+(b-a)*t}
 
-// ==================== 删除功能 ====================
-function deleteObject(worldPos) {
-    // 检测是否点击了站台
-    for (let i = GameState.platforms.length-1; i>=0; i--) {
-        const p = GameState.platforms[i];
-        if (p.mesh) {
-            const dist = Math.hypot(p.mesh.position.x-worldPos.x, p.mesh.position.z-worldPos.z);
-            if (dist < 25) {
-                scene.remove(p.mesh);
-                GameState.platforms.splice(i, 1);
-                GameState.money += Math.floor(CONFIG.COSTS.platform * 0.5);
-                updateUI();
-                showNotification('站台已删除，返还 '+formatMoney(CONFIG.COSTS.platform*0.5), 'info');
-                return;
-            }
+// ===== 删除 =====
+function delAt(wp){
+    // 站台
+    for(let i=GS.plats.length-1;i>=0;i--){
+        const p=GS.plats[i];
+        if(p.mesh&&Math.hypot(p.mesh.position.x-wp.x,p.mesh.position.z-wp.z)<25){
+            scene.remove(p.mesh);GS.plats.splice(i,1);
+            GS.MONEY+=Math.floor(GS.COST_PLAT*0.5);
+            updUI();notify('站台已删除','info');return
         }
     }
-    
-    // 检测是否点击了轨道
-    for (let i = GameState.tracks.length-1; i>=0; i--) {
-        const t = GameState.tracks[i];
-        if (t.mesh) {
-            // 简单距离检查
-            const mp = t.mesh.position;
-            const dist = Math.hypot(mp.x-worldPos.x, mp.z-worldPos.z);
-            if (dist < 20) {
-                scene.remove(t.mesh);
-                const refund = Math.floor(t.cellCount * CONFIG.COSTS.trackPerCell * 0.5);
-                GameState.money += refund;
-                GameState.tracks.splice(i, 1);
-                updateUI();
-                showNotification('轨道已删除，返还 '+formatMoney(refund), 'info');
-                return;
-            }
-        }
-    }
-    
-    // 检测是否点击了通道
-    for (let i = GameState.passages.length-1; i>=0; i--) {
-        const p = GameState.passages[i];
-        if (p.mesh) {
-            const dist = Math.hypot(p.mesh.position.x-worldPos.x, p.mesh.position.z-worldPos.z);
-            if (dist < 20) {
-                scene.remove(p.mesh);
-                GameState.money += Math.floor(CONFIG.COSTS.passage * 0.5);
-                GameState.passages.splice(i, 1);
-                updateUI();
-                showNotification('通道已删除，返还 '+formatMoney(CONFIG.COSTS.passage*0.5), 'info');
-                return;
-            }
+    // 轨道
+    for(let i=GS.trks.length-1;i>=0;i--){
+        const t=GS.trks[i];
+        if(t.mesh&&Math.hypot(t.mesh.position.x-wp.x,t.mesh.position.z-wp.z)<20){
+            scene.remove(t.mesh);
+            const ref=Math.floor(t.cells*GS.COST_TRK*0.5);
+            GS.MONEY+=ref;GS.trks.splice(i,1);
+            updUI();notify(`轨道已删除 +${fmtMoney(ref)}`,'info');return
         }
     }
 }
 
-// ==================== 收入计算 ====================
-function calculateIncome() {
-    const platformCount = GameState.platforms.length;
-    const trackCells = GameState.tracks.reduce((sum,t)=>sum+t.cellCount,0);
-    const trainCount = GameState.trains.filter(t=>t.state==='running').length;
-    
-    const baseIncome = platformCount*CONFIG.INCOME.perPlatform + trackCells*CONFIG.INCOME.perTrackCell + trainCount*CONFIG.INCOME.perTrain;
-    
-    const hour = Math.floor(GameState.timeMinutes % 1440 / 60);
-    const timeBonus = (hour>=6&&hour<20)?CONFIG.INCOME.dayBonus:CONFIG.INCOME.nightBonus;
-    
-    return baseIncome * timeBonus;
+// ===== 收入 =====
+function calcIncome(){
+    const pc=GS.plats.length*12+GS.trks.reduce((s,t)=>s+t.cells,0)*2+GS.trains.filter(t=>t.state==='run').length*20;
+    const h=Math.floor(GS.timeMin%1440/60);
+    return pc*(h>=6&&h<20?1.3:0.5);
 }
 
-// ==================== UI更新 ====================
-function updateUI() {
-    document.getElementById('val-money').textContent = formatMoney(GameState.money);
-    document.getElementById('val-platforms').textContent = GameState.platforms.length;
-    document.getElementById('val-tracks').textContent = GameState.tracks.reduce((s,t)=>s+t.cellCount,0)+' 格';
-    document.getElementById('val-trains').textContent = GameState.trains.length;
-    document.getElementById('val-income').textContent = formatMoney(calculateIncome());
-    
-    document.getElementById('time-display').textContent = minutesToHHMM(GameState.timeMinutes);
-    document.getElementById('day-display').textContent = `第${GameState.day}天`;
+// ===== UI更新 =====
+function updUI(){
+    document.getElementById('moneytxt').textContent=fmtMoney(GS.MONEY);
+    document.getElementById('nplat').textContent=GS.plats.length;
+    document.getElementById('ntrk').textContent=GS.trks.reduce((s,t)=>s+t.cells,0)+'格';
+    document.getElementById('ntrain').textContent=GS.trains.length;
+    document.getElementById('income').textContent=fmtMoney(calcIncome());
+    document.getElementById('timetxt').textContent=`${toHHMM(GS.timeMin)} 第${GS.day}天`;
 }
 
-function selectTool(tool) {
-    GameState.currentTool = tool;
-    cancelTrackDraw();
-    
-    // 更新按钮样式
-    document.querySelectorAll('.tool-btn[id^="tool-"]').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    const activeBtn = document.getElementById('tool-'+tool);
-    if (activeBtn) activeBtn.classList.add('active');
-    
-    // 更新模式显示
-    const modeEl = document.getElementById('current-mode');
-    const descEl = document.getElementById('mode-desc');
-    const hintEl = document.getElementById('mode-hint');
-    const hintText = document.getElementById('hint-big-text');
-    
-    switch(tool) {
-        case 'platform':
-            modeEl.className = 'mode-indicator mode-build';
-            modeEl.textContent = '🏗️ 建造站台';
-            descEl.textContent = '点击空地放置站台 (¥'+CONFIG.COSTS.platform+')';
-            hintText.style.display = 'block';
-            hintText.textContent = '📍 点击地面';
-            break;
-        case 'track':
-            modeEl.className = 'mode-indicator mode-track';
-            modeEl.textContent = '🛤️ 铺设轨道';
-            descEl.textContent = '按住鼠标左键拖拽绘制轨道 (¥'+CONFIG.COSTS.trackPerCell+'/格)';
-            hintText.style.display = 'block';
-            hintText.textContent = '↔️ 拖拽绘制';
-            break;
-        case 'passage':
-            modeEl.className = 'mode-indicator mode-build';
-            modeEl.textContent = '🚶 人行通道';
-            descEl.textContent = '依次点击两个站台连接通道 (¥'+CONFIG.COSTS.passage+')';
-            hintText.style.display = 'block';
-            hintText.textContent = '🔗 点击站台';
-            break;
-        case 'delete':
-            modeEl.className = 'mode-indicator mode-build';
-            modeEl.textContent = '🗑️ 删除模式';
-            descEl.textContent = '点击要删除的建筑';
-            hintText.style.display = 'block';
-            hintText.textContent = '❌ 点击删除';
-            break;
-        case 'view':
-            modeEl.className = 'mode-indicator mode-view';
-            modeEl.textContent = '👁️ 观看模式';
-            descEl.textContent = '自由旋转和缩放查看车站';
-            hintText.style.display = 'none';
-            break;
-    }
-}
-
-function updateModeUI(desc) {
-    document.getElementById('mode-desc').textContent = desc || '';
-}
-
-// ==================== 事件处理 ====================
-function getMouseWorldPosition(event) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    
-    raycaster.setFromCamera(mouse, camera);
-    
-    const intersects = raycaster.intersectObject(groundPlane);
-    if (intersects.length > 0) {
-        return intersects[0].point;
-    }
-    return null;
-}
-
-function onCanvasClick(event) {
-    if (event.button !== 0) return; // 只响应左键
-    
-    const worldPos = getMouseWorldPosition(event);
-    if (!worldPos) return;
-    
-    switch (GameState.currentTool) {
-        case 'platform':
-            const grid = worldToGrid(worldPos);
-            buildPlatformAt(grid.x, grid.z);
-            break;
-            
-        case 'delete':
-            deleteObject(worldPos);
-            break;
-            
-        case 'view':
-            // 观察模式下不做任何事
-            break;
-    }
-}
-
-function onCanvasMouseMove(event) {
-    if (GameState.currentTool === 'track' && GameState.isDrawingTrack && event.buttons === 1) {
-        const worldPos = getMouseWorldPosition(event);
-        if (worldPos) {
-            updateTrackDraw(worldPos);
-        }
-    }
-}
-
-function onCanvasMouseDown(event) {
-    if (event.button !== 0) return;
-    
-    if (GameState.currentTool === 'track') {
-        const worldPos = getMouseWorldPosition(event);
-        if (worldPos) {
-            startTrackDraw(worldPos);
-        }
-    }
-}
-
-function onCanvasMouseUp(event) {
-    if (event.button !== 0) return;
-    
-    if (GameState.currentTool === 'track' && GameState.isDrawingTrack) {
-        const worldPos = getMouseWorldPosition(event);
-        if (worldPos) {
-            finishTrackDraw(worldPos);
-        } else {
-            cancelTrackDraw();
-        }
-    }
-}
-
-// ==================== 相机控制 ====================
-function initOrbitControls() {
-    const canvas = renderer.domElement;
-    
-    canvas.addEventListener('mousedown', e => {
-        if (e.button === 2) {
-            isDragging = true;
-            lastMouseX = e.clientX;
-            lastMouseY = e.clientY;
-        }
+function setTool(tool){
+    GS.TOOL=tool;cancelDraw();
+    ['btn-plat','btn-trk','btn-del','btn-view'].forEach(id=>{
+        const b=document.getElementById(id);if(b)b.classList.toggle('active',id==='btn-'+tool)
     });
     
-    canvas.addEventListener('mousemove', e => {
-        if (isDragging) {
-            cameraTheta -= (e.clientX-lastMouseX)*0.008;
-            cameraPhi = clamp(cameraPhi+(e.clientY-lastMouseY)*0.008, 0.2, Math.PI/2-0.1);
-            lastMouseX=e.clientX;lastMouseY=e.clientY;
-            updateCameraPosition();
-        }
-    });
+    const tag=document.getElementById('modetag');
+    const desc=document.getElementById('modedesc');
+    const hint=document.getElementById('bighint');
     
-    canvas.addEventListener('mouseup', ()=>isDragging=false);
-    canvas.addEventListener('mouseleave', ()=>isDragging=false);
+    switch(tool){
+        case'plat':
+            tag.className='mode-badge mode-build';tag.textContent='🏗️ 建造站台';
+            desc.textContent='点击地图任意位置建造 (¥'+GS.COST_PLAT+')';
+            hint.style.display='block';hint.textContent='📍 点击地面';
+            break;
+        case'trk':
+            tag.className='mode-badge mode-track';tag.textContent='🛤️ 铺设轨道';
+            desc.textContent='按住左键拖拽绘制曲线轨道 (¥'+GS.COST_TRK+'/格)';
+            hint.style.display='block';hint.textContent='↔️ 拖拽绘制';
+            break;
+        case'del':
+            tag.className='mode-badge mode-build';tag.textContent='🗑️ 删除模式';
+            desc.textContent='点击建筑删除';
+            hint.style.display='block';hint.textContent='❌ 点击删除';
+            break;
+        case'view':
+            tag.className='mode-badge';tag.style.cssText='background:rgba(52,152,219,0.25);color:#3498DB;border:1px solid rgba(52,152,219,0.5)';
+            tag.textContent='👁️ 观看模式';
+            desc.textContent='自由旋转缩放查看';
+            hint.style.display='none';
+            break;
+    }
+}
+
+function setModeDesc(d){document.getElementById('modedesc').textContent=d||''}
+
+// ===== 事件处理 =====
+function getWorldPos(e){
+    const rect=renderer.domElement.getBoundingClientRect();
+    mouseV.x=((e.clientX-rect.left)/rect.width)*2-1;
+    mouseV.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(mouseV,cam);
+    const hits=raycaster.intersectObject(ground);
+    return hits.length>0?hits[0].point:null;
+}
+
+function onClick(e){
+    if(e.button!==0)return;
+    const wp=getWorldPos(e);if(!wp)return;
     
-    canvas.addEventListener('wheel', e=>{
-        e.preventDefault();
-        cameraDistance = clamp(cameraDistance*(e.deltaY>0?1.12:0.89), 50, 320);
-        updateCameraPosition();
-    }, {passive:false});
+    if(GS.TOOL==='plat'){
+        const g=worldToGrid(wp);buildPlat(g.x,g.z)
+    }else if(GS.TOOL==='del'){
+        delAt(wp)
+    }
+}
+
+function onMove(e){
+    if(GS.TOOL==='trk'&&GS.drawing&&e.buttons===1){
+        const wp=getWorldPos(e);if(wp)moveDraw(wp)
+    }
+}
+
+function onDown(e){
+    if(e.button!==0)return;
+    if(GS.TOOL==='trk'){const wp=getWorldPos(e);if(wp)startDraw(wp)}
+}
+
+function onUp(e){
+    if(e.button!==0)return;
+    if(GS.TOOL==='trk'&&GS.drawing){const wp=getWorldPos(e);if(wp)endDraw(wp);else cancelDraw()}
+}
+
+// ===== 相机控制 =====
+function initControls(){
+    const cvs=renderer.domElement;
+    cvs.addEventListener('mousedown',e=>{if(e.button===2){dragging=true;lastMX=e.clientX;lastMY=e.clientY}});
+    cvs.addEventListener('mousemove',e=>{if(dragging){cTheta-=(e.clientX-lastMX)*0.008;cPhi=clamp(cPhi+(e.clientY-lastMY)*0.008,0.2,Math.PI/2-0.1);lastMX=e.clientX;lastMY=e.clientY;updateCam()}});
+    cvs.addEventListener('mouseup',()=>dragging=false);
+    cvs.addEventListener('mouseleave',()=>dragging=false);
+    cvs.addEventListener('wheel',e=>{e.preventDefault();cDist=clamp(cDist*(e.deltaY>0?1.12:0.89),50,320);updateCam()},{passive:false});
     
-    document.addEventListener('keydown', e=>{
-        const spd = 4;
+    document.addEventListener('keydown',e=>{
+        const spd=4;
         switch(e.key.toLowerCase()){
-            case 'w':cameraTarget.z-=spd;break;
-            case 's':cameraTarget.z+=spd;break;
-            case 'a':cameraTarget.x-=spd;break;
-            case 'd':cameraTarget.x+=spd;break;
-            case ' ':togglePause();break;
-            case '1':setSpeed(1);break;
-            case '2':setSpeed(2);break;
-            case '3':setSpeed(4);break;
-            case 'delete':case 'backspace':cancelTrackDraw();break;
+            case'w':cTarget.z-=spd;break;case's':cTarget.z+=spd;break;
+            case'a':cTarget.x-=spd;break;case'd':cTarget.x+=spd;break;
+            case' ':togPause();break;
+            case'1':setSpd(1);break;case'2':setSpd(2);break;case'3':setSpd(4);break;
+            case'delete':case'backspace':cancelDraw();break
         }
-        updateCameraPosition();
+        updateCam()
     });
 }
 
-function updateCameraPosition() {
-    const offset = new THREE.Vector3(
-        Math.sin(cameraPhi)*Math.cos(cameraTheta),
-        Math.cos(cameraPhi),
-        Math.sin(cameraPhi)*Math.sin(cameraTheta)
+function updateCam(){
+    const off=new THREE.Vector3(
+        Math.sin(cPhi)*Math.cos(cTheta),
+        Math.cos(cPhi),
+        Math.sin(cPhi)*Math.sin(cTheta)
     );
-    camera.position.copy(cameraTarget).add(offset.multiplyScalar(cameraDistance));
-    camera.lookAt(cameraTarget);
+    cam.position.copy(cTarget).add(off.multiplyScalar(cDist));
+    cam.lookAt(cTarget);
+    const asp=window.innerWidth/window.innerHeight;
+    const vs=cDist*0.62;
+    cam.left=-vs*asp;cam.right=vs*asp;cam.top=vs;cam.bottom=-vs;
+    cam.updateProjectionMatrix()
+}
+
+function onResize(){
+    const asp=window.innerWidth/window.innerHeight;
+    const vs=cDist*0.62;
+    cam.left=-vs*asp;cam.right=vs*asp;cam.top=vs;cam.bottom=-vs;
+    cam.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth,window.innerHeight)
+}
+
+// ===== 控制函数 =====
+function setSpd(s){GS.SPD=s}
+function togPause(){GS.PAUSED=!GS.PAUSED;document.getElementById('pbtn').textContent=GS.PAUSED?'▶':'⏸'}
+
+function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+
+// ===== 主循环 =====
+function loop(){
+    requestAnimationFrame(loop);
+    const dt=clock.getDelta();
     
-    const aspect = window.innerWidth/window.innerHeight;
-    const vs = cameraDistance*0.62;
-    camera.left=-vs*aspect;camera.right=vs*aspect;
-    camera.top=vs;camera.bottom=-vs;
-    camera.updateProjectionMatrix();
-}
-
-function onWindowResize() {
-    const aspect = window.innerWidth/window.innerHeight;
-    const vs = cameraDistance*0.62;
-    camera.left=-vs*aspect;camera.right=vs*aspect;
-    camera.top=vs;camera.bottom=-vs;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth,window.innerHeight);
-}
-
-// ==================== 控制函数 ====================
-function setSpeed(spd) {
-    GameState.speedMultiplier = spd;
-    [1,2,4].forEach((v,i)=>{
-        const b=document.getElementById('spd-'+v);
-        if(b)b.classList.toggle('active',i+1===Math.log2(spd));
-    });
-}
-
-function togglePause() {
-    if (!GameState.tutorialComplete) {
-        showNotification('请先开始建造', 'info');
-        return;
-    }
-    GameState.paused=!GameState.paused;
-    document.getElementById('btn-pause').textContent=GameState.paused?'▶':'⏸';
-}
-
-// ==================== 新手引导 ====================
-function showTutorial() {
-    const o=document.createElement('div');
-    o.className='tutorial-overlay';
-    o.innerHTML=`
-    <div class="tutorial-box">
-        <div class="tutorial-title">🚂 欢迎来到 Railway Builder</div>
-        <div class="tutorial-subtitle">像城市天际线一样自由建造你的火车站</div>
+    if(!GS.PAUSED){
+        GS.timeMin+=dt*60*GS.SPD;
+        while(GS.timeMin>=1440){GS.timeMin-=1440;GS.day++}
         
-        <div class="tutorial-step">
-            <div class="tutorial-step-title">📋 第一步：建造第一个站台</div>
-            <div class="tutorial-step-desc">
-                当前已选择<strong>"建造站台"</strong>工具<br>
-                👉 <strong>点击地图上的任意位置</strong><br><br>
-                ✅ 站台会立即出现在你点击的地方<br>
-                ✅ 花费 ¥${CONFIG.COSTS.platform}<br><br>
-                <em style="color:#F39C12;">💡 提示：你可以把站台建在任何地方！</em>
-            </div>
-        </div>
+        updateTrains(dt);
+        const inc=calcIncome()*dt*GS.SPD/60;
+        GS.MONEY+=inc;
         
-        <div class="tutorial-step" style="background:rgba(230,126,34,0.12);border-color:rgba(230,126,34,0.3);">
-            <div class="tutorial-step-title" style="color:#F39C12;">🛤️ 第二步：铺设铁轨</div>
-            <div class="tutorial-step-desc">
-                完成站台后：<br>
-                1️⃣ 选择左侧工具栏的<strong>"铺设轨道"</strong><br>
-                2️⃣ 从<strong>左侧或右侧的铁轨入口</strong>开始<br>
-                3️⃣ <strong>按住鼠标拖拽</strong>画线到站台前<br>
-                4️⃣ 松开鼠标完成铺设<br><br>
-                <em>🎨 轨道可以弯曲！想怎么画就怎么画！</em>
-            </div>
-        </div>
-        
-        <div class="tutorial-step" style="background:rgba(52,152,219,0.12);border-color:rgba(52,152,219,0.3);">
-            <div class="tutorial-step-title" style="color:#3498DB;">🚂 第三步：发送列车</div>
-            <div class="tutorial-step-desc">
-                轨道连通后：<br>
-                • 点击<strong>"发送列车"</strong>按钮<br>
-                • 火车会沿着你画的轨道行驶<br>
-                • 经过站台时会停靠上下客<br><br>
-                <em>💰 站台和轨道越多，收入越高！</em>
-            </div>
-        </div>
-        
-        <button class="tutorial-btn" onclick="
-            try {
-                if(typeof closeTutorial === 'function') {
-                    closeTutorial();
-                } else {
-                    alert('游戏初始化中，请稍候...');
-                    location.reload();
-                }
-            } catch(e) {
-                console.error('Button error:', e);
-                document.querySelectorAll('.tutorial-overlay').forEach(el=>el.remove());
-            }
-        ">👍 开始建造我的火车站！</button>
-    `;
-    document.body.appendChild(o);
-}
-
-function closeTutorial() {
-    try {
-        const o=document.getElementById('tutorial-overlay');
-        if(o){
-            o.style.opacity='0';
-            o.style.transition='opacity 0.3s';
-            setTimeout(()=>{ if(o.parentNode) o.parentNode.removeChild(o); },300);
-        }
-        GameState.tutorialComplete=true;
-        
-        // 延迟一下再选择工具，确保UI更新
-        setTimeout(()=>{
-            selectTool('platform');
-            showNotification('🎉 游戏开始！点击地图建造你的第一个站台', 'success');
-        }, 400);
-        
-        console.log('Tutorial closed, game started');
-    } catch(e) {
-        console.error('Error closing tutorial:', e);
-        // 强制移除
-        document.querySelectorAll('.tutorial-overlay').forEach(el=>el.remove());
-        GameState.tutorialComplete=true;
-        selectTool('platform');
-    }
-}
-
-// ==================== 主循环 ====================
-function gameLoop() {
-    requestAnimationFrame(gameLoop);
-    const delta=clock.getDelta();
-    
-    if(!GameState.paused && GameState.tutorialComplete){
-        GameState.timeMinutes+=delta*CONFIG.TIME_SCALE*GameState.speedMultiplier;
-        while(GameState.timeMinutes>=1440){GameState.timeMinutes-=1440;GameState.day++;}
-        
-        updateTrains(delta);
-        
-        const income=calculateIncome()*delta*GameState.speedMultiplier/60;
-        GameState.money+=income;
-        GameState.totalIncome+=Math.abs(income);
-        
-        if(Math.floor(GameState.timeMinutes)%1===0)updateUI();
+        if(Math.floor(GS.timeMin)%2===0)updUI()
     }
     
-    renderer.render(scene,camera);
+    renderer.render(scene,cam)
 }
 
-// ==================== 初始化 ====================
-function init(){
-    console.log('🚂 Railway Builder: Initializing...');
-    
-    try {
-        initScene();
-        updateUI();
-        gameLoop();
-        
-        console.log('✅ Scene initialized, showing tutorial in 600ms');
-        setTimeout(()=>{
-            try {
-                showTutorial();
-                console.log('✅ Tutorial displayed');
-            } catch(e) {
-                console.error('❌ Tutorial error:', e);
-            }
-        }, 600);
-        
-    } catch(e) {
-        console.error('❌ Init error:', e);
-        document.body.innerHTML = `
-            <div style="padding:40px;font-family:sans-serif;color:#e74c3c;text-align:center;">
-                <h1>⚠️ 游戏加载出错</h1>
-                <p>错误信息: ${e.message}</p>
-                <pre>${e.stack}</pre>
-                <button onclick="location.reload()" style="padding:10px 20px;margin-top:20px;cursor:pointer;">🔄 重新加载</button>
-            </div>
-        `;
-    }
-}
-
-console.log('📦 Script loaded, waiting for DOM...');
-
-if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',()=>{
-        console.log('🎯 DOM ready, initializing');
-        init();
-    });
-}else{
-    console.log('🎯 DOM already ready, initializing now');
-    init();
+// ===== 启动 =====
+console.log('🚂 Railway Builder v1.0 - Starting...');
+try{
+    initScene();
+    updUI();
+    loop();
+    console.log('✅ Ready! Tool:',GS.TOOL);
+}catch(e){
+    console.error('❌ Error:',e);
+    document.body.innerHTML='<div style="padding:40px;color:#e74c3c;text-align:center;"><h1>⚠️ 加载出错</h1><pre>'+e.stack+'</pre><br><button onclick="location.reload()"style="padding:10px 20px;cursor:pointer;">🔄 重试</button></div>'
 }
 
 // 全局暴露
-window.selectTool=selectTool;
-window.addTrainManually=addTrainManually;
-window.setSpeed=setSpeed;
-window.togglePause=togglePause;
-window.closeTutorial=closeTutorial;
+window.setTool=setTool;
+window.addTrain=addTrain;
+window.setSpd=setSpd;
+window.togPause=togPause;
 
 </script>
 </body>
