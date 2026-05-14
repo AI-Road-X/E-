@@ -1938,7 +1938,7 @@ function initOrbitControls() {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('mouseleave', onMouseUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.addEventListener('click', onClick);
+    canvas.addEventListener('click', onCanvasClick);
 }
 
 function onMouseDown(e) {
@@ -4162,6 +4162,17 @@ function init() {
 }
 
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
+
+// 将所有需要被HTML onclick调用的对象暴露到全局作用域
+window.SmartScheduler = SmartScheduler;
+window.SaveSystem = SaveSystem;
+window.AchievementSystem = AchievementSystem;
+window.EventSystem = EventSystem;
+window.ShopManager = ShopManager;
+window.SceneEditor = SceneEditor;
+window.TrainConfig = TrainConfig;
+window.RepairBay = RepairBay;
+window.Game = Game;
 
 })();
     </script>
