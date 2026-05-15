@@ -1,151 +1,188 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚂 Railway Builder</title>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Microsoft YaHei',sans-serif;background:#1a1a2e;color:#eee;overflow:hidden;user-select:none}
-        #canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
-        
-        /* 顶部栏 */
-        .topbar{position:fixed;top:0;left:0;right:0;height:44px;background:rgba(20,25,40,0.95);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:100;border-bottom:1px solid rgba(255,255,255,0.08)}
-        .time-box{font-family:'Courier New',monospace;font-size:18px;color:#F1C40F;font-weight:bold}
-        .money-box{background:linear-gradient(135deg,rgba(39,174,96,0.2),rgba(46,204,113,0.1));border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:5px 14px;display:flex;align-items:center;gap:6px}
-        .money-val{font-family:'Courier New',monospace;font-size:17px;color:#2ECC71;font-weight:bold}
-        
-        /* 左侧工具栏 */
-        .toolbar{position:fixed;top:54px;left:10px;width:170px;background:rgba(22,28,45,0.95);backdrop-filter:blur(10px);border:1px solid rgba(52,152,219,0.25);border-radius:12px;padding:12px;z-index:100}
-        .toolbar-title{font-size:12px;color:#F1C40F;margin-bottom:10px;font-weight:bold;letter-spacing:0.5px}
-        .tool-btn{width:100%;padding:9px 8px;margin-bottom:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:7px;color:#ddd;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
-        .tool-btn:hover:not(.active){background:rgba(52,152,219,0.2);transform:translateX(2px)}
-        .tool-btn.active{background:linear-gradient(135deg,rgba(231,76,60,0.35),rgba(230,126,34,0.2));border-color:rgba(231,76,60,0.7);box-shadow:0 0 12px rgba(231,76,60,0.3)}
-        .cost-tag{font-size:10px;background:rgba(0,0,0,0.3);padding:2px 7px;border-radius:8px;color:#F39C12}
-        
-        /* 右侧信息面板 */
-        .info-panel{position:fixed;top:54px;right:10px;display:flex;flex-direction:column;gap:8px;z-index:100}
-        .info-card{background:rgba(22,28,45,0.92);backdrop-filter:blur(10px);border:1px solid rgba(52,152,219,0.25);border-radius:10px;padding:10px 12px;min-width:90px}
-        .info-label{font-size:9px;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
-        .info-val{font-family:'Courier New',monospace;font-size:19px;font-weight:bold}
-        
-        /* 底部状态栏 */
-        .statusbar{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(22,28,45,0.92);border:1px solid rgba(52,152,219,0.25);border-radius:10px;padding:8px 20px;font-size:12px;z-index:100;display:flex;align-items:center;gap:12px}
-        .mode-badge{padding:4px 12px;border-radius:6px;font-weight:bold;font-size:11px}
-        .mode-build{background:rgba(39,174,96,0.25);color:#2ECC71;border:1px solid rgba(39,174,96,0.5)}
-        .mode-track{background:rgba(230,126,34,0.25);color:#F39C12;border:1px solid rgba(230,126,34,0.5)}
-        
-        /* 通知 */
-        .notif{position:fixed;top:55px;left:50%;transform:translateX(-50%) translateY(-15px);background:rgba(22,28,45,0.97);border-left:4px solid #27AE60;border-radius:8px;padding:10px 20px;color:#fff;font-size:13px;z-index:999;opacity:0;transition:all 0.3s;pointer-events:none;text-align:center;max-width:400px}
-        .notif.show{opacity:1;transform:translateX(-50%) translateY(0)}
-        .notif.err{border-left-color:#E74C3C}
-        .notif.info{border-left-color:#3498DB}
-        
-        /* 提示文字 */
-        .hint{position:fixed;bottom:42px;right:12px;font-size:11px;color:rgba(255,255,255,0.25);text-align:right;line-height:1.7;z-index:99}
-        
-        /* 大字提示 */
-        .big-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:bold;color:rgba(243,156,18,0.2);pointer-events:none;z-index:50;text-shadow:0 2px 10px rgba(0,0,0,0.4)}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚂 Railway Builder 2D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#1a1a2e;color:#eee;overflow:hidden;display:flex;flex-direction:column;height:100vh}
+canvas{flex:1;width:100%;cursor:crosshair}
+
+/* 顶部栏 */
+.topbar{height:44px;background:#16213e;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:10}
+.time{font-family:'Courier New',monospace;font-size:17px;color:#F1C40F;font-weight:bold}
+.money{background:linear-gradient(135deg,rgba(39,174,96,0.25),rgba(46,204,113,0.15));border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:4px 14px;font-family:'Courier New',monospace;font-size:16px;color:#2ECC71;font-weight:bold}
+.spd-btns{display:flex;gap:3px}
+.spd-btn{padding:4px 10px;background:rgba(52,152,219,0.15);border:1px solid rgba(52,152,219,0.35);border-radius:6px;color:#3498DB;cursor:pointer;font-size:11px}
+.spd-btn:hover,.spd-btn.active{background:rgba(52,152,219,0.35)}
+.pbtn{padding:4px 10px;background:rgba(243,156,18,0.15);border:1px solid rgba(243,156,18,0.35);border-radius:6px;color:#F39C12;cursor:pointer;font-size:11px}
+
+/* 工具栏 */
+.toolbar{position:fixed;top:54px;left:8px;width:155px;background:#16213e;border:1px solid rgba(52,152,219,0.25);border-radius:10px;padding:10px;z-index:10}
+.ttl{font-size:11px;color:#F1C40F;margin-bottom:7px;font-weight:bold}
+.tbtn{width:100%;padding:7px 6px;margin-bottom:4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ccc;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s}
+.tbtn:hover:not(.on){background:rgba(52,152,219,0.18);transform:translateX(2px)}
+.tbtn.on{background:linear-gradient(135deg,rgba(231,76,60,0.32),rgba(230,126,34,0.18));border-color:rgba(231,76,60,0.65);box-shadow:0 0 10px rgba(231,76,60,0.25)}
+.ct{font-size:9px;background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:6px;color:#F39C12}
+.sep{height:1px;background:rgba(255,255,255,0.07);margin:7px 0}
+
+/* 信息面板 */
+.info{position:fixed;top:54px;right:8px;display:flex;flex-direction:column;gap:6px;z-index:10}
+.icard{background:#16213e;border:1px solid rgba(52,152,219,0.22);border-radius:8px;padding:8px 10px;min-width:82px}
+.ilbl{font-size:8px;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.ival{font-family:'Courier New',monospace;font-size:17px;font-weight:bold}
+
+/* 底部状态 */
+.statusbar{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:#16213e;border:1px solid rgba(52,152,219,0.22);border-radius:8px;padding:6px 16px;font-size:11px;z-index:10;display:flex;align-items:center;gap:10px}
+.mtag{padding:3px 10px;border-radius:5px;font-weight:bold;font-size:10px}
+.mtag-plat{background:rgba(39,174,96,0.22);color:#2ECC71;border:1px solid rgba(39,174,96,0.45)}
+.mtag-trk{background:rgba(230,126,34,0.22);color:#F39C12;border:1px solid rgba(230,126,34,0.45)}
+
+/* 调度面板 */
+.sched-panel{position:fixed;top:54px;right:8px;background:#16213e;border:1px solid rgba(231,76,60,0.3);border-radius:10px;padding:10px;width:280px;z-index:20;display:none}
+.sched-panel.show{display:block}
+.shdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.stitle{font-size:13px;font-weight:bold;color:#E74C3C}
+.close-btn{width:22px;height:22px;border-radius:50%;border:none;background:rgba(231,76,60,0.2);color:#E74C3C;cursor:pointer;font-size:14px;text-align:center;line-height:22px}
+.close-btn:hover{background:rgba(231,76,60,0.4)}
+
+/* 调度表格 */
+.sched-table{width:100%;border-collapse:collapse;font-size:11px}
+.sched-table th{background:rgba(52,152,219,0.15);color:#3498DB;padding:5px 4px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(52,152,219,0.2)}
+.sched-table td{padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+.sched-row:hover{background:rgba(255,255,255,0.04)}
+.train-dir{text-align:center;font-weight:bold;font-size:12px}
+.dir-e{color:#E74C3C}
+.dir-w{color:#3498DB}
+.train-time{font-family:'Courier New',monospace;color:#F1C40F;font-weight:bold}
+.train-action select{background:#0f172a;border:1px solid rgba(52,152,219,0.3);border-radius:4px;color:#ddd;padding:2px 4px;font-size:10px;cursor:pointer;width:100%}
+.train-action select option{background:#16213e}
+.train-status{font-size:9px;padding:1px 5px;border-radius:3px}
+.status-run{background:rgba(39,174,96,0.2);color:#2ECC71}
+.status-stop{background:rgba(243,156,18,0.2);color:#F39C12}
+.status-wait{background:rgba(149,165,166,0.2);color:#95A5A6}
+
+/* 通知 */
+.notif{position:fixed;top:55px;left:50%;transform:translateX(-50%) translateY(-12px);background:#16213e;border-left:3px solid #27AE60;border-radius:6px;padding:8px 18px;color:#fff;font-size:12px;z-index:999;opacity:0;transition:all 0.25s;pointer-events:none;text-align:center;max-width:380px}
+.notif.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.notif.err{border-left-color:#E74C3C}
+.notif.info{border-left-color:#3498DB}
+
+.hint{position:fixed;bottom:38px;right:10px;font-size:10px;color:rgba(255,255,255,0.2);text-align:right;line-height:1.6;z-index:9}
+</style>
 </head>
 <body>
 
-<div id="canvas-container"></div>
-
-<!-- UI层 -->
 <div class="topbar">
-    <div class="time-box" id="timetxt">08:00 第1天</div>
-    <div style="display:flex;gap:5px">
-        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(1)">×1</button>
-        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(2)">×2</button>
-        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="setSpd(4)">×4</button>
-        <button class="tool-btn" style="width:auto;padding:4px 10px;font-size:11px" onclick="togPause()" id="pbtn">⏸</button>
+    <div class="time" id="timetxt">08:00 第1天</div>
+    <div class="spd-btns">
+        <button class="spd-btn active" onclick="setSpd(1)">×1</button>
+        <button class="spd-btn" onclick="setSpd(2)">×2</button>
+        <button class="spd-btn" onclick="setSpd(4)">×4</button>
     </div>
-    <div class="money-box"><span>💰</span><span class="money-val" id="moneytxt">¥5,000</span></div>
+    <button class="pbtn" id="pbtn" onclick="togPause()">⏸ 暂停</button>
+    <button class="tbtn" style="width:auto;padding:4px 12px;font-size:11px" onclick="toggleSched()">📋 调度面板</button>
+    <div class="money">💰 <span id="moneytxt">¥5,000</span></div>
 </div>
 
 <div class="toolbar">
-    <div class="toolbar-title">🔧 建造工具</div>
-    <button class="tool-btn active" id="btn-plat" onclick="setTool('plat')">
-        <span>🚉 建造站台</span><span class="cost-tag">¥800</span>
-    </button>
-    <button class="tool-btn" id="btn-trk" onclick="setTool('trk')">
-        <span>🛤️ 铺设轨道</span><span class="cost-tag">¥50/格</span>
-    </button>
-    <button class="tool-btn" id="btn-del" onclick="setTool('del')">
-        <span>🗑️ 删除</span><span style="color:#e74c3c;font-size:10px">返50%</span>
-    </button>
-    <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1)">
-        <div class="toolbar-title">🎮 其他</div>
-        <button class="tool-btn" id="btn-view" onclick="setTool('view')">
-            <span>👁️ 观看模式</span><span style="color:#95a5a6;font-size:10px">自由视角</span>
-        </button>
-        <button class="tool-btn" onclick="addTrain()">
-            <span>🚂 发送列车</span><span style="color:#3498db;font-size:10px">免费</span>
-        </button>
-    </div>
+    <div class="ttl">🔧 建造工具</div>
+    <button class="tbtn on" id="bplat" onclick="setTool('plat')"><span>🚉 建造站台</span><span class="ct">¥800</span></button>
+    <button class="tbtn" id="btrk" onclick="setTool('trk')"><span>🛤️ 铺设轨道</span><span class="ct">¥50/格</span></button>
+    <button class="tbtn" id="bdel" onclick="setTool('del')"><span>🗑️ 删除</span><span style="color:#e74c3c;font-size:9px">返50%</span></button>
+    <div class="sep"></div>
+    <div class="ttl">🎮 其他</div>
+    <button class="tbtn" id="bview" onclick="setTool('view')"><span>👁️ 观看模式</span></button>
+    <button class="tbtn" onclick="addTrain()"><span>🚂 发送列车</span><span style="color:#3498db;font-size:9px">免费</span></button>
 </div>
 
-<div class="info-panel">
-    <div class="info-card"><div class="info-label">🚉 站台</div><div class="info-val" id="nplat" style="color:#3498DB">0</div></div>
-    <div class="info-card"><div class="info-label">🛤️ 轨道</div><div class="info-val" id="ntrk" style="color:#E67E22">0格</div></div>
-    <div class="info-card"><div class="info-label">🚂 列车</div><div class="info-val" id="ntrain" style="color:#E74C3C">0</div></div>
-    <div class="info-card"><div class="info-label">💵 收入/分</div><div class="info-val" id="income" style="color:#27AE60">¥0</div></div>
+<div class="info">
+    <div class="icard"><div class="ilbl">🚉 站台</div><div class="ival" id="nplat" style="color:#3498DB">0</div></div>
+    <div class="icard"><div class="ilbl">🛤️ 轨道</div><div class="ival" id="ntrk" style="color:#E67E22">0格</div></div>
+    <div class="icard"><div class="ilbl">🚂 列车</div><div class="ival" id="ntrain" style="color:#E74C3C">0</div></div>
+    <div class="icard"><div class="ilbl">💵 收入/分</div><div class="ival" id="income" style="color:#27AE60">¥0</div></div>
+</div>
+
+<!-- 调度面板 -->
+<div class="sched-panel" id="schedPanel">
+    <div class="shdr">
+        <span class="stitle">📋 列车调度表</span>
+        <button class="close-btn" onclick="toggleSched()">✕</button>
+    </div>
+    <table class="sched-table" id="schedTable">
+        <thead><tr><th>#</th><th>方向</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="schedBody"></tbody>
+    </table>
+    <div style="margin-top:8px;font-size:10px;color:#95A5A6;text-align:center">点击操作列选择停靠方式</div>
 </div>
 
 <div class="statusbar">
-    <span class="mode-badge mode-build" id="modetag">🏗️ 建造站台</span>
-    <span id="modedesc">点击地图任意位置建造</span>
+    <span class="mtag mtag-plat" id="mtag">🏗️ 建造站台</span>
+    <span id="mdesc">点击空地建造站台</span>
 </div>
 
-<div class="big-hint" id="bighint" style="display:none">📍 点击地面</div>
-
 <div class="hint">
-    🖱️ 左键:操作 | 🔄 滚轮:缩放<br>
-    ⌨️ WASD:移动 | 空格:暂停
+    🖱️ 左键操作 | 🔄 滚轮缩放 | ⌨️ WASD移动<br>
+    🎯 建轨道时按住左键拖拽绘制曲线
 </div>
 
 <div id="notifbox"></div>
+<canvas id="cv"></canvas>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script>
-// ===== 配置 =====
-const GS = {
-    GRID: 5,
-    MW: 120, MD: 80,
+// ========== 配置 ==========
+const C = {
+    GRID: 8,
+    MAP_W: 140, MAP_H: 90,
+    ENTRY_L: {x:-30, z:40, label:'← 西'},
+    ENTRY_R: {x:MAP_W*C.GRID+30, z:40, label:'东 →'},
     COST_PLAT: 800,
     COST_TRK: 50,
     MONEY: 5000,
-    SPD: 1, PAUSED: false,
-    TOOL: 'plat',
-    timeMin: 480, day: 1,
     
-    plats: [], trks: [], trains: [],
-    platMeshes: {}, trkMeshes: {}, trainMeshes: {},
-    nextId: { plat:1, trk:1, train:1 },
+    // 颜色
+    BG: '#2d4a3d',
+    GRID_LINE: 'rgba(80,120,90,0.35)',
+    BORDER: '#E67E22',
+    PLAT_BODY: '#95A5A6',
+    PLAT_ROOF: '#BDC3C7',
+    PLAT_LINE: '#F39C12',
+    TRACK_BED: '#8B7355',
+    TRACK_RAIL: '#666666',
+    TIE: '#5D4037',
+    TRAIN_COLORS: ['#27AE60','#3498DB','#E74C3C','#F39C12'],
+};
+
+const S = {
+    tool: 'plat',
+    money: C.MONEY,
+    spd: 1,
+    paused: false,
+    timeMin: 480,
+    day: 1,
     
-    // 轨道入口
-    entries: [
-        { x: -300, z: 0, label:'← 西' },
-        { x: 300, z: 0, label:'东 →' }
-    ],
+    plats: [],
+    tracks: [],
+    trains: [],
     
     drawing: false,
     drawPts: [],
-    previewLine: null
+    
+    // 视图偏移和缩放
+    offsetX: 0,
+    offsetY: 0,
+    zoom: 1,
+    draggingView: false,
+    dragStart: {x:0,y:0},
+    
+    nextId: { plat:1, track:1, train:1 }
 };
 
-let scene, cam, renderer, clock;
-let ground;
-let raycaster = new THREE.Raycaster();
-let mouseV = new THREE.Vector2();
+let cv, ctx;
+let lastTime = 0;
 
-// 相机控制
-let cTarget = new THREE.Vector3(0,0,0);
-let cTheta = Math.PI/4, cPhi = Math.PI/3, cDist = 140;
-let dragging = false, lastMX=0, lastMY=0;
-
-// ===== 工具函数 =====
+// ========== 工具函数 ==========
 function clamp(a,b,c){return Math.max(b,Math.min(c,a))}
 function pad(n){return String(Math.floor(n)).padStart(2,'0')}
 function fmtMoney(n){
@@ -153,13 +190,7 @@ function fmtMoney(n){
     return '¥'+Math.floor(n).toLocaleString();
 }
 function toHHMM(m){return pad(Math.floor(m)/60%24)+':'+pad(m%60)}
-
-function worldToGrid(p){
-    return{x:Math.round((p.x+GS.MW*GS.GRID/2)/GS.GRID),z:Math.round((p.z+GS.MD*GS.GRID/2)/GS.GRID)}
-}
-function gridToWorld(g){
-    return{x:g.x*GS.GRID-GS.MW*GS.GRID/2,z:g.z*GS.GRID-GS.MD*GS.GRID/2}
-}
+function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)}
 
 function notify(msg,type='ok'){
     const b=document.getElementById('notifbox');
@@ -168,561 +199,709 @@ function notify(msg,type='ok'){
     n.textContent=msg;
     b.appendChild(n);
     requestAnimationFrame(()=>n.classList.add('show'));
-    setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),300)},3000);
+    setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),250)},3000);
 }
 
-// ===== Three.js 初始化 =====
-function initScene(){
-    scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x87CEEB);
-    scene.fog=new THREE.Fog(0x87CEEB,150,450);
-    
-    const asp=window.innerWidth/window.innerHeight;
-    cam=new THREE.OrthographicCamera(-90*asp,90*asp,90,-90,0.1,1000);
-    updateCam();
-    
-    renderer=new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth,window.innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-    renderer.shadowMap.enabled=true;
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-    
-    clock=new THREE.Clock();
-    
-    scene.add(new THREE.AmbientLight(0xffffff,0.5));
-    const dl=new THREE.DirectionalLight(0xfffaf0,0.8);
-    dl.position.set(60,100,50);dl.castShadow=true;
-    dl.shadow.mapSize.set(2048,2048);
-    scene.add(dl);
-    
-    createGround();
-    createEntries();
-    
-    // 事件
-    window.addEventListener('resize',onResize);
-    renderer.domElement.addEventListener('click',onClick);
-    renderer.domElement.addEventListener('mousemove',onMove);
-    renderer.domElement.addEventListener('mousedown',onDown);
-    renderer.domElement.addEventListener('mouseup',onUp);
-    
-    initControls();
+// 坐标转换：屏幕坐标 ↔ 世界坐标
+function screenToWorld(sx,sy){
+    return {
+        x: (sx - cv.width/2) / S.zoom + S.offsetX,
+        y: (sy - cv.height/2) / S.zoom + S.offsetY
+    };
+}
+function worldToScreen(wx,wy){
+    return {
+        x: (wx - S.offsetX) * S.zoom + cv.width/2,
+        y: (wy - S.offsetY) * S.zoom + cv.height/2
+    };
 }
 
-function createGround(){
-    const gw=GS.MW*GS.GRID, gd=GS.MD*GS.GRID;
-    const g=new THREE.PlaneGeometry(gw,gd);
-    const m=new THREE.MeshLambertMaterial({color:0x3d7a3d,transparent:true,opacity:0.9});
-    ground=new THREE.Mesh(g,m);
-    ground.rotation.x=-Math.PI/2;
-    ground.receiveShadow=true;
-    ground.userData.ground=true;
-    scene.add(ground);
+// ========== 绘制函数 ==========
+function initCanvas(){
+    cv = document.getElementById('cv');
+    ctx = cv.getContext('2d');
+    resize();
+    window.addEventListener('resize', resize);
     
-    // 网格
-    const grid=new THREE.GridHelper(gw,GS.MW,0x444444,0x333333);
-    grid.position.y=0.01;
-    scene.add(grid);
+    cv.addEventListener('mousedown', onMouseDown);
+    cv.addEventListener('mousemove', onMouseMove);
+    cv.addEventListener('mouseup', onMouseUp);
+    cv.addEventListener('wheel', onWheel, {passive:false});
+    cv.addEventListener('contextmenu', e => e.preventDefault());
+    
+    document.addEventListener('keydown', onKeyDown);
+    
+    // 居中视图
+    S.offsetX = C.MAP_W * C.GRID / 2;
+    S.offsetY = C.MAP_H * C.GRID / 2;
+}
+
+function resize(){
+    const r = cv.parentElement.getBoundingClientRect();
+    cv.width = r.width;
+    cv.height = r.height;
+}
+
+function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.save();
+    
+    // 应用视图变换
+    ctx.translate(cv.width/2, cv.height/2);
+    ctx.scale(S.zoom, S.zoom);
+    ctx.translate(-S.offsetX, -S.offsetY);
+    
+    drawGround();
+    drawEntries();
+    drawTracks();
+    drawPlats();
+    drawTrains();
+    if(S.drawing && S.drawPts.length > 0) drawPreviewTrack();
+    
+    ctx.restore();
+    
+    // UI覆盖层（不受缩放影响）
+    if(S.tool === 'plat'){
+        const hint = document.getElementById('bighint');
+        drawCenterHint('📍 点击空地建造站台', '#27AE60');
+    } else if(S.tool === 'trk' && !S.drawing){
+        drawCenterHint('↔️ 从入口处按住左键拖拽绘制轨道', '#E67E22');
+    }
+}
+
+function drawGround(){
+    const w = C.MAP_W * C.GRID;
+    const h = C.MAP_H * C.GRID;
+    
+    // 背景
+    ctx.fillStyle = C.BG;
+    ctx.fillRect(0, 0, w, h);
+    
+    // 网格线
+    ctx.strokeStyle = C.GRID_LINE;
+    ctx.lineWidth = 0.5;
+    for(let x=0;x<=w;x+=C.GRID){
+        ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();
+    }
+    for(let y=0;y<=h;y+=C.GRID){
+        ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();
+    }
     
     // 边框
-    const edges=new THREE.EdgesGeometry(new THREE.BoxGeometry(gw,0.3,gd));
-    const line=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0xF39C12}));
-    line.position.y=0.15;
-    scene.add(line);
+    ctx.strokeStyle = C.BORDER;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0,0,w,h);
 }
 
-function createEntries(){
-    GS.entries.forEach((e,i)=>{
-        const g=new THREE.Group();
+function drawEntries(){
+    [C.ENTRY_L, C.ENTRY_R].forEach((e,i)=>{
+        const x = e.x, y = e.z;
         
-        // 平台
-        const p=new THREE.Mesh(new THREE.BoxGeometry(8,0.5,12),new THREE.MeshLambertMaterial({color:0x95A5A6}));
-        p.position.set(e.x,0.25,e.z);p.castShadow=true;
-        g.add(p);
+        // 入口平台
+        ctx.fillStyle = i===0 ? '#3498DB' : '#E74C3C';
+        ctx.fillRect(x-20,y-8,40,16);
         
         // 标志牌
-        const s=new THREE.Mesh(new THREE.BoxGeometry(4,3,0.3),new THREE.MeshLambertMaterial({color:i===0?0x3498DB:0xE74C3C}));
-        s.position.set(e.x+(i===0?3:-3),2.5,e.z+5);
-        g.add(s);
+        ctx.fillStyle = i===0 ? '#2980B9' : '#C0392B';
+        ctx.fillRect(x+(i===0?15:-35),y-18,20,14);
         
         // 文字
-        const cv=document.createElement('canvas');cv.width=128;cv.height=64;
-        const cx=cv.getContext('2d');
-        cx.fillStyle='#1a1a2e';cx.fillRect(0,0,128,64);
-        cx.fillStyle='#fff';cx.font='bold 24px Arial';cx.textAlign='center';
-        cx.fillText(e.label,64,42);
-        const tx=new THREE.CanvasTexture(cv);
-        const t=new THREE.Mesh(new THREE.PlaneGeometry(3.5,1.8),new THREE.MeshBasicMaterial({map:tx,transparent:true}));
-        t.position.set(e.x+(i===0?3:-3),2.51,e.z+5.01);
-        g.add(t);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(e.label, x+(i===0?25:-25), y-11);
         
-        // 预置轨道
+        // 预置轨道段
         for(let j=0;j<3;j++){
-            const r=new THREE.Mesh(new THREE.BoxGeometry(6,0.15,0.3),new THREE.MeshLambertMaterial({color:0x666666}));
-            r.position.set(e.x+(i===0?4+j*7:-4-j*7),0.2,e.z-1.5);
-            g.add(r);
-            const r2=r.clone();r2.position.z=e.z+1.5;
-            g.add(r2);
+            const rx = x + (i===0 ? 28+j*12 : -28-j*12);
+            ctx.fillStyle = C.TRACK_BED;
+            ctx.fillRect(rx-5,y-2,10,4);
+            ctx.fillStyle = C.TRACK_RAIL;
+            ctx.fillRect(rx-5,y-3.5,10,1.2);
+            ctx.fillRect(rx-5,y+2.3,10,1.2);
+        }
+    });
+}
+
+function drawPlats(){
+    S.plats.forEach(p=>{
+        const x = p.x, y = p.y;
+        const w = 48, d = 14;
+        
+        // 站台主体
+        ctx.fillStyle = C.PLAT_BODY;
+        ctx.fillRect(x-w/2,y-d/2,w,d);
+        
+        // 顶棚
+        ctx.fillStyle = C.PLAT_ROOF;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(x-w/2-2,y-d/2-5,w+4,5);
+        ctx.globalAlpha = 1;
+        
+        // 安全黄线
+        ctx.fillStyle = C.PLAT_LINE;
+        ctx.fillRect(x-w/2+3,y+d/2-2,w-6,2);
+        
+        // 编号牌
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x+w/2-16,y-d/2-12,32,10);
+        ctx.fillStyle = '#F1C40F';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.id+'号站台',x+w/2-0.5,y-d/2-7);
+        
+        // 站名标签（上方）
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.roundRect(x-20,y-d/2-26,40,14,4);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('🚉 站台',x,y-d/2-19);
+    });
+}
+
+function drawTracks(){
+    S.tracks.forEach(t=>{
+        if(t.pts.length < 2) return;
+        
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        for(let i=0;i<t.pts.length-1;i++){
+            const p1=t.pts[i],p2=t.pts[i+1];
+            const ang = Math.atan2(p2.y-p1.y,p2.x-p1.x);
+            
+            // 道床
+            ctx.save();
+            ctx.translate((p1.x+p2.x)/2,(p1.y+p2.y)/2);
+            ctx.rotate(ang);
+            const len = dist(p1,p2);
+            ctx.fillStyle = C.TRACK_BED;
+            ctx.fillRect(-len/2,-3,len,6);
+            
+            // 双轨
+            ctx.fillStyle = C.TRACK_RAIL;
+            ctx.fillRect(-len/2,-1.8,len,1);
+            ctx.fillRect(-len/2,+0.8,len,1);
+            
+            // 枕木
+            ctx.fillStyle = C.TIE;
+            const cnt = Math.max(2,Math.floor(len/4));
+            for(let j=0;j<=cnt;j++){
+                const t=j/cnt;
+                ctx.fillRect(-len/2+len*t-0.8,-2.8,1.6,5.6);
+            }
+            ctx.restore();
+        }
+    });
+}
+
+function drawPreviewTrack(){
+    if(S.drawPts.length < 2) return;
+    
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle = '#F39C12';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(S.drawPts[0].x,S.drawPts[0].y);
+    for(let i=1;i<S.drawPts.length;i++)ctx.lineTo(S.drawPts[i].x,S.drawPts[i].y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // 起点标记
+    ctx.fillStyle = '#27AE60';
+    ctx.beginPath();ctx.arc(S.drawPts[0].x,S.drawPts[0].y,5,0,Math.PI*2);ctx.fill();
+}
+
+function drawTrains(){
+    S.trains.forEach(t=>{
+        if(!t.path||t.path.length<2)return;
+        
+        // 计算当前位置
+        let idx = t.idx;
+        let prog = t.prog;
+        if(idx >= t.path.length-1) return;
+        
+        const p1 = t.path[idx];
+        const p2 = t.path[Math.min(idx+1,t.path.length-1)];
+        const x = p1.x+(p2.x-p1.x)*prog;
+        const y = p1.y+(p2.y-p1.y)*prog;
+        const ang = Math.atan2(p2.y-p1.y,p2.x-p1.x)+(t.dir==='E'?0:Math.PI);
+        
+        ctx.save();
+        ctx.translate(x,y);
+        ctx.rotate(ang);
+        
+        // 列车车身
+        const col = C.TRAIN_COLORS[t.type] || C.TRAIN_COLORS[0];
+        ctx.fillStyle = col;
+        ctx.fillRect(-18,-3.5,36,7);
+        
+        // 车头
+        ctx.beginPath();
+        ctx.moveTo(18,0);
+        ctx.lineTo(12,-3.5);
+        ctx.lineTo(12,3.5);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 车窗
+        ctx.fillStyle = 'rgba(173,216,230,0.6)';
+        for(let i=0;i<t.cars;i++){
+            ctx.fillRect(-16-i*7,-2,5,4);
         }
         
-        scene.add(g);
+        // 方向标识
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(t.dir==='E'?'→':'←',0,-7);
+        
+        ctx.restore();
     });
 }
 
-// ===== 建造：站台 =====
-function makePlatMesh(gx,gz){
-    const wp=gridToWorld({x:gx,z:gz});
-    const grp=new THREE.Group(), w=40,d=10;
-    
-    // 主体
-    const base=new THREE.Mesh(new THREE.BoxGeometry(w,1.2,d),new THREE.MeshLambertMaterial({color:0x95A5A6}));
-    base.position.set(wp.x,0.6,wp.z);base.castShadow=true;base.receiveShadow=true;
-    grp.add(base);
-    
-    // 支柱
-    [-w/2+3,-w/2+12,w/2-12,w/2-3].forEach(px=>{
-        const p=new THREE.Mesh(new THREE.BoxGeometry(0.6,4,0.6),new THREE.MeshLambertMaterial({color:0x7F8C8D}));
-        p.position.set(wp.x+px,3.2,wp.z);p.castShadow=true;
-        grp.add(p);
-    });
-    
-    // 顶棚
-    const roof=new THREE.Mesh(new THREE.BoxGeometry(w+2,0.4,d+2),new THREE.MeshLambertMaterial({color:0xBDC3C7,transparent:true,opacity:0.9}));
-    roof.position.set(wp.x,5.4,wp.z);roof.castShadow=true;
-    grp.add(roof);
-    
-    // 黄线
-    const yl=new THREE.Mesh(new THREE.BoxGeometry(w-2,0.08,0.4),new THREE.MeshBasicMaterial({color:0xF39C12}));
-    yl.position.set(wp.x,1.21,wp.z+d/2-1);
-    grp.add(yl);
-    
-    // 编号牌
-    const num=GS.plats.length+1;
-    const cv=document.createElement('canvas');cv.width=128;cv.height=64;
-    const cx=cv.getContext('2d');
-    cx.fillStyle='#1a1a2e';cx.fillRect(0,0,128,64);
-    cx.fillStyle='#F1C40F';cx.font='bold 32px Arial';cx.textAlign='center';
-    cx.fillText(num+'号站台',64,42);
-    const sign=new THREE.Mesh(new THREE.PlaneGeometry(5,2.5),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),transparent:true}));
-    sign.position.set(wp.x+w/2-6,4,wp.z+d/2+1.5);
-    grp.add(sign);
-    
-    grp.userData={type:'plat',gx:gz,gz:gz,id:GS.plats.length};
-    return grp;
+function drawCenterHint(text,color){
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.15;
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text,cv.width/2,cv.height/2);
+    ctx.restore();
 }
 
-function buildPlat(gx,gz){
-    if(GS.MONEY<GS.COST_PLAT){notify(`资金不足！需要 ${fmtMoney(GS.COST_PLAT)}`,'err');return}
-    
-    if(GS.plats.some(p=>Math.abs(p.gx-gx)<9&&Math.abs(p.gz-gz)<4)){
-        notify('位置重叠','info');return
+// ========== 建造系统 ==========
+function buildPlatform(wx,wy){
+    if(S.money < C.COST_PLAT){
+        notify(`资金不足！需要${fmtMoney(C.COST_PLAT)}`,'err');
+        return;
     }
     
-    GS.MONEY-=GS.COST_PLAT;
-    const mesh=makePlatMesh(gx,gz);
-    scene.add(mesh);
+    // 检查重叠
+    for(const p of S.plats){
+        if(dist({x:wx,y:wy},p)<30){
+            notify('位置太近已有站台','info');
+            return;
+        }
+    }
     
-    GS.plats.push({id:GS.nextId.plat++,gx,gz,mesh});
-    GS.platMeshes[GS.plats[GS.plats.length-1].id]=mesh;
+    S.money -= C.COST_PLAT;
+    const plat = {id:S.nextId.plat++,x:wx,y:wy};
+    S.plats.push(plat);
     
     updUI();
-    notify(`✅ ${GS.plats.length}号站台建成！`,'ok');
+    notify(`✅ ${plat.id}号站台建成！花费${fmtMoney(C.COST_PLAT)}`,'ok');
     
-    if(GS.plats.length===1){
-        setTimeout(()=>notify('💡 提示：选择【铺设轨道】从入口画线到站台','info'),1500);
+    if(S.plats.length === 1){
+        setTimeout(()=>notify('💡 提示：选择【铺设轨道】从入口画线到站台前','info'),1500);
     }
 }
 
-// ===== 建造：轨道 =====
-function startDraw(pt){
-    if(GS.MONEY<GS.COST_TRK){notify('资金不足','err');return}
-    GS.drawing=true;
-    GS.drawPts=[pt.clone()];
-    
-    const mat=new THREE.LineDashedMaterial({color:0xF39C12,dashSize:1,gapSize:0.5});
-    const geo=new THREE.BufferGeometry().setFromPoints([pt.clone(),pt.clone()]);
-    GS.previewLine=new THREE.Line(geo,mat);
-    scene.add(GS.previewLine);
-    
-    setModeDesc('正在绘制轨道...');
+function startDrawTrack(pt){
+    if(S.money < C.COST_TRK){notify('资金不足','err');return}
+    S.drawing = true;
+    S.drawPts = [pt];
+    setMDesc('正在绘制轨道...');
 }
 
-function moveDraw(pt){
-    if(!GS.drawing||!GS.previewLine)return;
-    GS.drawPts.push(pt.clone());
-    const sampled=[];
-    for(let i=0;i<GS.drawPts.length;i+=3)sampled.push(GS.drawPts[i]);
-    if(sampled.length<2)sampled.push(GS.drawPts[GS.drawPts.length-1]);
-    GS.previewLine.geometry.dispose();
-    GS.previewLine.geometry=new THREE.BufferGeometry().setFromPoints(sampled);
+function moveDrawTrack(pt){
+    if(!S.drawing) return;
+    S.drawPts.push(pt);
 }
 
-function endDraw(pt){
-    if(!GS.drawing)return;
-    GS.drawPts.push(pt.clone());
+function endDrawTrack(pt){
+    if(!S.drawing) return;
+    S.drawPts.push(pt);
     
-    let len=0;
-    for(let i=1;i<GS.drawPts.length;i++){
-        const dx=GS.drawPts[i].x-GS.drawPts[i-1].x;
-        const dz=GS.drawPts[i].z-GS.drawPts[i-1].z;
-        len+=Math.sqrt(dx*dx+dz*dz);
+    // 计算长度
+    let len = 0;
+    for(let i=1;i<S.drawPts.length;i++){
+        len += dist(S.drawPts[i-1],S.drawPts[i]);
     }
     
-    const cells=Math.ceil(len/GS.GRID);
-    const cost=cells*GS.COST_TRK;
+    const cells = Math.ceil(len / C.GRID);
+    const cost = cells * C.COST_TRK;
     
-    if(cost>GS.MONEY){notify(`资金不足！需要 ${fmtMoney(cost)}`,'err');cancelDraw();return}
+    if(cost > S.money){
+        notify(`资金不足！需要${fmtMoney(cost)}`,'err');
+        cancelDraw();
+        return;
+    }
     
-    GS.MONEY-=cost;
-    makeTrackMesh(GS.drawPts);
+    if(cells < 3){
+        notify('轨道太短了！至少需要3格','info');
+        cancelDraw();
+        return;
+    }
     
-    GS.trks.push({
-        id:GS.nextId.trk++,
-        pts:GS.drawPts.map(p=>({x:p.x,z:p.z})),
-        cells,len,mesh:null
-    });
+    S.money -= cost;
+    const track = {
+        id:S.nextId.track++,
+        pts:S.drawPts.map(p=>({x:p.x,y:p.y})),
+        cells, cost
+    };
+    S.tracks.push(track);
+    
     cancelDraw();
     updUI();
     notify(`✅ 轨道完成！${cells}格，花费${fmtMoney(cost)}`,'ok');
     
-    if(GS.trks.length>0&&GS.plats.length>0&&GS.trains.length<3){
-        setTimeout(addTrain,1200);
+    // 自动发第一列车
+    if(S.tracks.length>0 && S.trains.length<2 && S.plats.length>0){
+        setTimeout(addTrain,800);
     }
 }
 
 function cancelDraw(){
-    GS.drawing=false;GS.drawPts=[];
-    if(GS.previewLine){scene.remove(GS.previewLine);GS.previewLine.geometry.dispose();GS.previewLine=null}
-    setModeDesc('');
+    S.drawing = false;
+    S.drawPts = [];
+    setMDesc('');
 }
 
-function makeTrackMesh(pts){
-    const grp=new THREE.Group();
-    for(let i=0;i<pts.length-1;i++){
-        const p1=pts[i],p2=pts[i+1];
-        const dist=Math.sqrt((p2.x-p1.x)**2+(p2.z-p1.z)**2);
-        const mid={x:(p1.x+p2.x)/2,z:(p1.z+p2.z)/2};
-        const ang=Math.atan2(p2.z-p1.z,p2.x-p1.x);
-        
-        // 道床
-        const bed=new THREE.Mesh(new THREE.BoxGeometry(dist,0.25,2.5),new THREE.MeshLambertMaterial({color:0x8B7355}));
-        bed.position.set(mid.x,0.125,mid.z);bed.rotation.y=-ang;bed.castShadow=true;
-        grp.add(bed);
-        
-        // 双轨
-        [-0.8,0.8].forEach(off=>{
-            const rail=new THREE.Mesh(new THREE.BoxGeometry(dist,0.12,0.15),new THREE.MeshLambertMaterial({color:0x666666}));
-            rail.position.set(mid.x,0.28,mid.z+off);rail.rotation.y=-ang;
-            grp.add(rail);
-        });
-        
-        // 枕木
-        const cnt=Math.max(2,Math.floor(dist/3));
-        for(let j=0;j<=cnt;j++){
-            const t=j/cnt;
-            const sx=p1.x+(p2.x-p1.x)*t,sz=p1.z+(p2.z-p1.z)*t;
-            const sl=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.12,2.2),new THREE.MeshLambertMaterial({color:0x5D4037}));
-            sl.position.set(sx,0.22,sz);sl.rotation.y=-ang;
-            grp.add(sl);
+function deleteAt(wx,wy){
+    // 删除站台
+    for(let i=S.plats.length-1;i>=0;i--){
+        if(dist({x:wx,y:wy},S.plats[i])<25){
+            sceneRemove(S.plats[i]);
+            S.plats.splice(i,1);
+            S.money += Math.floor(C.COST_PLAT*0.5);
+            updUI();notify('站台已删除 +'+fmtMoney(Math.floor(C.COST_PLAT*0.5)),'info');
+            return;
         }
     }
-    grp.userData.type='track';
-    scene.add(grp);
-    if(GS.trks.length>0)GS.trks[GS.trks.length-1].mesh=grp;
-    return grp;
-}
-
-// ===== 列车 =====
-function makeTrainMesh(type){
-    const grp=new THREE.Group();
-    const colors=[0x27AE60,0x3498DB,0xE74C3C,0xF39C12];
-    const lens=[3,4,6,8];
-    const speeds=[1,1.6,2.3,3];
-    const ci=type||Math.floor(Math.random()*4);
-    const col=colors[ci],len=lens[ci],spd=speeds[ci];
-    
-    // 车头
-    const nose=new THREE.Mesh(new THREE.ConeGeometry(1.6,4.5,8),new THREE.MeshPhongMaterial({col,shininess:80}));
-    nose.rotateZ(-Math.PI/2);nose.position.set(len*4+2.5,1.8,0);nose.castShadow=true;
-    grp.add(nose);
-    
-    // 车厢
-    const car=new THREE.BoxGeometry(8,3.2,2.8);
-    const carMat=new THREE.MeshPhongMaterial({col,shininess:60});
-    for(let i=0;i<len;i++){
-        const c=new THREE.Mesh(car,carMat);
-        c.position.set(-i*8.5-4,1.6,0);c.castShadow=true;
-        grp.add(c);
-        
-        // 车窗
-        const w=new THREE.Mesh(new THREE.BoxGeometry(7,1.3,0.1),new THREE.MeshBasicMaterial({color:0xAED6F1,transparent:true,opacity:0.65}));
-        w.position.set(-i*8.5-4,2.4,1.45);
-        grp.add(w);
+    // 删除轨道
+    for(let i=S.tracks.length-1;i>=0;i--){
+        const mid = getTrackMid(S.tracks[i]);
+        if(mid && dist({x:wx,y:wy},mid)<20){
+            const ref = Math.floor(S.tracks[i].cells*C.COST_TRK*0.5);
+            S.money += ref;
+            S.tracks.splice(i,1);
+            updUI();notify('轨道已删除 +'+fmtMoney(ref),'info');
+            return;
+        }
     }
-    
-    return {mesh:grp,speed:spd};
 }
 
+function sceneRemove(obj){} // 2D不需要清理DOM
+
+function getTrackMid(trk){
+    if(!trk.pts||trk.pts.length<2)return null;
+    const midIdx = Math.floor(trk.pts.length/2);
+    return trk.pts[midIdx];
+}
+
+// ========== 列车系统 ==========
 function addTrain(){
-    if(GS.trks.length===0){notify('请先铺设轨道！','info');return}
-    if(GS.trains.length>=30){notify('已达最大列车数','warning');return}
+    if(S.tracks.length===0){notify('请先铺设轨道！','info');return}
+    if(S.trains.length>=20){notify('已达最大列车数','warning');return}
     
-    const trk=GS.trks[Math.floor(Math.random()*GS.trks.length)];
-    const {mesh:speed}=makeTrainMesh();
+    const trk = S.tracks[Math.floor(Math.random()*S.tracks.length)];
+    const type = Math.floor(Math.random()*4);
+    const cars = [3,4,6,8][type];
+    const speed = [1,1.6,2.3,3][type];
+    const dir = trk.pts[0].x > trk.pts[trk.pts.length-1].x ? 'W' : 'E';
     
-    const td={
-        id:GS.nextId.train++,
+    const train = {
+        id:S.nextId.train++,
         path:trk.pts,
-        idx:0,prog:0,state:'run',
-        speed,mesh
+        idx:0, prog:0,
+        state:'run',
+        type,cars,speed,dir,
+        action:'pass' // pass|stop|delay5|delay10
     };
     
-    if(td.path&&td.path[0]){
-        td.mesh.position.set(td.path[0].x,0,td.path[0].z);
-        if(td.path[1]){
-            const ang=Math.atan2(td.path[1].z-td.path[0].z,td.path[1].x-td.path[0].x);
-            td.mesh.rotation.y=ang+Math.PI/2;
-        }
-    }else{
-        td.mesh.position.set(-80,0,0);td.mesh.rotation.y=Math.PI/2;
-    }
-    
-    scene.add(td.mesh);
-    GS.trainMeshes[td.id]=td.mesh;
-    GS.trains.push(td);
-    
+    S.trains.push(train);
     updUI();
+    updateSchedTable();
+    
     const names=['普速','快速','动车','高铁'];
-    notify(`🚂 ${names[Math.floor(Math.random()*4)]}#${String(td.id).padStart(3,'0')} 已发车`,'ok');
+    notify(`🚂 ${names[type]}#${String(train.id).padStart(3,'0')} ${dir==='E'?'东→西':'西→东'} 已发车`,'ok');
 }
 
 function updateTrains(dt){
-    const rmv=[];
-    GS.trains.forEach(t=>{
-        if(!t.mesh||!t.path||t.path.length<2)return;
-        t.prog+=0.012*t.speed*dt*60;
-        if(t.prog>=1){
-            t.idx++;t.prog=0;
-            if(t.idx>=t.path.length-1){t.state='done';rmv.push(t.id)}
+    const toRemove = [];
+    
+    S.trains.forEach(t=>{
+        if(!t.path||t.path.length<2)return;
+        
+        // 处理停靠逻辑
+        let spdMult = 1;
+        if(t.action === 'stop'){
+            // 检查是否在站台附近
+            const nearPlat = S.plats.some(p=>dist({x:t.getX(),y:t.getY()},p)<20);
+            if(nearPlat && t.prog>0.3&&t.prog<0.7){
+                spdMult = 0; // 停靠中
+                t.state = 'stop';
+                if(!t.stopTimer)t.stopTimer=0;
+                t.stopTimer+=dt*60*S.spd;
+                if(t.stopTimer>180){t.stopTimer=0;t.action='pass';t.state='run'}
+            }else{
+                t.state='run';
+            }
+        } else if(t.action.startsWith('delay')){
+            const mins = parseInt(t.action.replace('delay',''))||5;
+            // 在某个点等待
+            if(t.idx===Math.floor(t.path.length/3)){
+                spdMult=0;t.state='wait';
+                if(!t.delayTimer)t.delayTimer=0;
+                t.delayTimer+=dt*60*S.spd;
+                if(t.delayTimer>mins*60){t.delayTimer=0;t.action='pass';t.state='run'}
+            }else{
+                t.state='run';
+            }
+        } else {
+            t.state='run';
         }
-        const i1=Math.min(t.idx,t.path.length-2),i2=Math.min(i1+1,t.path.length-1);
-        const p1=t.path[i1],p2=t.path[i2];
-        t.mesh.position.x=lerp(p1.x,p2.x,t.prog);
-        t.mesh.position.z=lerp(p1.z,p2.z,t.prog);
-        if(p2&&p1){
-            const ang=Math.atan2(p2.z-p1.z,p2.x-p1.x);
-            t.mesh.rotation.y=ang+(t.path[0].x>t.path[t.path.length-1].x?Math.PI/2:-Math.PI/2);
+        
+        t.prog += 0.008*t.speed*dt*60*S.spd*spdMult;
+        
+        if(t.prog >= 1){
+            t.idx++;
+            t.prog = 0;
+            if(t.idx >= t.path.length-1){
+                toRemove.push(t.id);
+            }
         }
     });
     
-    rmv.forEach(id=>{
-        const idx=GS.trains.findIndex(t=>t.id===id);
+    toRemove.forEach(id=>{
+        const idx = S.trains.findIndex(t=>t.id===id);
         if(idx!==-1){
-            const t=GS.trains[idx];
-            if(t.mesh){scene.remove(t.mesh);delete GS.trainMeshes[id]}
-            GS.trains.splice(idx,1);
-            if(Math.random()<0.7&&GS.trks.length>0)setTimeout(addTrain,randomInt(2000,6000));
+            S.trains.splice(idx,1);
+            if(Math.random()<0.75&&S.tracks.length>0)setTimeout(addTrain,randomInt(2000,5000));
         }
     });
+    
+    updateSchedTable();
 }
 
-function lerp(a,b,t){return a+(b-a)*t}
+// 辅助：获取列车当前世界坐标
+Object.defineProperty(Array.prototype,'getX',{value:function(){const t=this[0];if(!t)return 0;let i=t.idx,i2=Math.min(i+1,t.path.length-1),p=t.path[i],p2=t.path[i2];return p.x+(p2.x-p.x)*t.prog}});
+Object.defineProperty(Array.prototype,'getY',{value:function(){const t=this[0];if(!t)return 0;let i=t.idx,i2=Math.min(i+1,t.path.length-1),p=t.path[i],p2=t.path[i2];return p.y+(p2.y-p.y)*t.prog}});
 
-// ===== 删除 =====
-function delAt(wp){
-    // 站台
-    for(let i=GS.plats.length-1;i>=0;i--){
-        const p=GS.plats[i];
-        if(p.mesh&&Math.hypot(p.mesh.position.x-wp.x,p.mesh.position.z-wp.z)<25){
-            scene.remove(p.mesh);GS.plats.splice(i,1);
-            GS.MONEY+=Math.floor(GS.COST_PLAT*0.5);
-            updUI();notify('站台已删除','info');return
-        }
-    }
-    // 轨道
-    for(let i=GS.trks.length-1;i>=0;i--){
-        const t=GS.trks[i];
-        if(t.mesh&&Math.hypot(t.mesh.position.x-wp.x,t.mesh.position.z-wp.z)<20){
-            scene.remove(t.mesh);
-            const ref=Math.floor(t.cells*GS.COST_TRK*0.5);
-            GS.MONEY+=ref;GS.trks.splice(i,1);
-            updUI();notify(`轨道已删除 +${fmtMoney(ref)}`,'info');return
-        }
-    }
-}
-
-// ===== 收入 =====
+// ========== 收入系统 ==========
 function calcIncome(){
-    const pc=GS.plats.length*12+GS.trks.reduce((s,t)=>s+t.cells,0)*2+GS.trains.filter(t=>t.state==='run').length*20;
-    const h=Math.floor(GS.timeMin%1440/60);
+    const pc = S.plats.length*12 + S.tracks.reduce((s,t)=>s+t.cells,0)*2 + S.trains.filter(t=>t.state!=='wait').length*20;
+    const h = Math.floor(S.timeMin%1440/60);
     return pc*(h>=6&&h<20?1.3:0.5);
 }
 
-// ===== UI更新 =====
+// ========== UI更新 ==========
 function updUI(){
-    document.getElementById('moneytxt').textContent=fmtMoney(GS.MONEY);
-    document.getElementById('nplat').textContent=GS.plats.length;
-    document.getElementById('ntrk').textContent=GS.trks.reduce((s,t)=>s+t.cells,0)+'格';
-    document.getElementById('ntrain').textContent=GS.trains.length;
-    document.getElementById('income').textContent=fmtMoney(calcIncome());
-    document.getElementById('timetxt').textContent=`${toHHMM(GS.timeMin)} 第${GS.day}天`;
+    document.getElementById('moneytxt').textContent = fmtMoney(S.money);
+    document.getElementById('nplat').textContent = S.plats.length;
+    document.getElementById('ntrk').textContent = S.tracks.reduce((s,t)=>s+t.cells,0)+'格';
+    document.getElementById('ntrain').textContent = S.trains.length;
+    document.getElementById('income').textContent = fmtMoney(calcIncome());
+    document.getElementById('timetxt').textContent = `${toHHMM(S.timeMin)} 第${S.day}天`;
 }
 
 function setTool(tool){
-    GS.TOOL=tool;cancelDraw();
-    ['btn-plat','btn-trk','btn-del','btn-view'].forEach(id=>{
-        const b=document.getElementById(id);if(b)b.classList.toggle('active',id==='btn-'+tool)
+    S.tool = tool;
+    cancelDraw();
+    ['bplat','btrk','bdel','bview'].forEach(id=>{
+        const b=document.getElementById(id);
+        if(b)b.classList.toggle('on',id==='b'+tool);
     });
     
-    const tag=document.getElementById('modetag');
-    const desc=document.getElementById('modedesc');
-    const hint=document.getElementById('bighint');
+    const tag = document.getElementById('mtag');
+    const desc = document.getElementById('mdesc');
     
     switch(tool){
         case'plat':
-            tag.className='mode-badge mode-build';tag.textContent='🏗️ 建造站台';
-            desc.textContent='点击地图任意位置建造 (¥'+GS.COST_PLAT+')';
-            hint.style.display='block';hint.textContent='📍 点击地面';
+            tag.className='mtag mtag-plat';tag.textContent='🏗️ 建造站台';
+            desc.textContent='点击空地建造 (¥'+C.COST_PLAT+')';
             break;
         case'trk':
-            tag.className='mode-badge mode-track';tag.textContent='🛤️ 铺设轨道';
-            desc.textContent='按住左键拖拽绘制曲线轨道 (¥'+GS.COST_TRK+'/格)';
-            hint.style.display='block';hint.textContent='↔️ 拖拽绘制';
+            tag.className='mtag mtag-trk';tag.textContent='🛤️ 铺设轨道';
+            desc.textContent='从入口处按住左键拖拽绘制 (¥'+C.COST_TRK+'/格)';
             break;
         case'del':
-            tag.className='mode-badge mode-build';tag.textContent='🗑️ 删除模式';
+            tag.className='mtag mtag-plat';tag.textContent='🗑️ 删除模式';
             desc.textContent='点击建筑删除';
-            hint.style.display='block';hint.textContent='❌ 点击删除';
             break;
         case'view':
-            tag.className='mode-badge';tag.style.cssText='background:rgba(52,152,219,0.25);color:#3498DB;border:1px solid rgba(52,152,219,0.5)';
+            tag.style.cssText='background:rgba(52,152,219,0.22);color:#3498DB;border:1px solid rgba(52,152,219,0.45)';
             tag.textContent='👁️ 观看模式';
-            desc.textContent='自由旋转缩放查看';
-            hint.style.display='none';
+            desc.textContent='自由查看';
             break;
     }
 }
 
-function setModeDesc(d){document.getElementById('modedesc').textContent=d||''}
+function setMDesc(d){document.getElementById('mdesc').textContent=d||''}
 
-// ===== 事件处理 =====
-function getWorldPos(e){
-    const rect=renderer.domElement.getBoundingClientRect();
-    mouseV.x=((e.clientX-rect.left)/rect.width)*2-1;
-    mouseV.y=-((e.clientY-rect.top)/rect.height)*2+1;
-    raycaster.setFromCamera(mouseV,cam);
-    const hits=raycaster.intersectObject(ground);
-    return hits.length>0?hits[0].point:null;
+// ========== 调度面板 ==========
+function toggleSched(){
+    const p = document.getElementById('schedPanel');
+    p.classList.toggle('show');
+    if(p.classList.contains('show'))updateSchedTable();
 }
 
-function onClick(e){
-    if(e.button!==0)return;
-    const wp=getWorldPos(e);if(!wp)return;
+function updateSchedTable(){
+    const tbody = document.getElementById('schedBody');
+    tbody.innerHTML = '';
     
-    if(GS.TOOL==='plat'){
-        const g=worldToGrid(wp);buildPlat(g.x,g.z)
-    }else if(GS.TOOL==='del'){
-        delAt(wp)
+    if(S.trains.length===0){
+        tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#7f8c8d;padding:20px">暂无列车，点击【发送列车】添加</td></tr>';
+        return;
     }
-}
-
-function onMove(e){
-    if(GS.TOOL==='trk'&&GS.drawing&&e.buttons===1){
-        const wp=getWorldPos(e);if(wp)moveDraw(wp)
-    }
-}
-
-function onDown(e){
-    if(e.button!==0)return;
-    if(GS.TOOL==='trk'){const wp=getWorldPos(e);if(wp)startDraw(wp)}
-}
-
-function onUp(e){
-    if(e.button!==0)return;
-    if(GS.TOOL==='trk'&&GS.drawing){const wp=getWorldPos(e);if(wp)endDraw(wp);else cancelDraw()}
-}
-
-// ===== 相机控制 =====
-function initControls(){
-    const cvs=renderer.domElement;
-    cvs.addEventListener('mousedown',e=>{if(e.button===2){dragging=true;lastMX=e.clientX;lastMY=e.clientY}});
-    cvs.addEventListener('mousemove',e=>{if(dragging){cTheta-=(e.clientX-lastMX)*0.008;cPhi=clamp(cPhi+(e.clientY-lastMY)*0.008,0.2,Math.PI/2-0.1);lastMX=e.clientX;lastMY=e.clientY;updateCam()}});
-    cvs.addEventListener('mouseup',()=>dragging=false);
-    cvs.addEventListener('mouseleave',()=>dragging=false);
-    cvs.addEventListener('wheel',e=>{e.preventDefault();cDist=clamp(cDist*(e.deltaY>0?1.12:0.89),50,320);updateCam()},{passive:false});
     
-    document.addEventListener('keydown',e=>{
-        const spd=4;
-        switch(e.key.toLowerCase()){
-            case'w':cTarget.z-=spd;break;case's':cTarget.z+=spd;break;
-            case'a':cTarget.x-=spd;break;case'd':cTarget.x+=spd;break;
-            case' ':togPause();break;
-            case'1':setSpd(1);break;case'2':setSpd(2);break;case'3':setSpd(4);break;
-            case'delete':case'backspace':cancelDraw();break
-        }
-        updateCam()
+    const names = ['普速','快速','动车','高铁'];
+    const actions = [
+        {v:'pass',label:'🟢 不停靠'},
+        {v:'stop',label:'🟡 停靠'},
+        {v:'delay5',label:'⏰ 5分钟后停'},
+        {v:'delay10',label:'⏰ 10分钟后停'}
+    ];
+    
+    S.trains.forEach(t=>{
+        const tr = document.createElement('tr');
+        tr.className='sched-row';
+        
+        const stateClass = t.state==='run'?'status-run':t.state==='stop'?'status-stop':'status-wait';
+        const stateText = t.state==='run'?'运行中':t.state==='stop'?'停靠中':'等待中';
+        
+        tr.innerHTML = `
+            <td>#${String(t.id).padStart(3,'0')}</td>
+            <td class="train-dir ${t.dir==='E'?'dir-e':'dir-w'}">${t.dir==='E'?'东→西':'西→东'}</td>
+            <td><span class="train-status ${stateClass}">${stateText}</span></td>
+            <td class="train-action">
+                <select onchange="changeAction(${t.id},this.value)">
+                    ${actions.map(a=>`<option value="${a.v}"${t.action===a.v?'selected':''}>${a.label}</option>`).join('')}
+                </select>
+            </td>
+        `;
+        tbody.appendChild(tr);
     });
 }
 
-function updateCam(){
-    const off=new THREE.Vector3(
-        Math.sin(cPhi)*Math.cos(cTheta),
-        Math.cos(cPhi),
-        Math.sin(cPhi)*Math.sin(cTheta)
-    );
-    cam.position.copy(cTarget).add(off.multiplyScalar(cDist));
-    cam.lookAt(cTarget);
-    const asp=window.innerWidth/window.innerHeight;
-    const vs=cDist*0.62;
-    cam.left=-vs*asp;cam.right=vs*asp;cam.top=vs;cam.bottom=-vs;
-    cam.updateProjectionMatrix()
-}
+window.changeAction = function(trainId,action){
+    const t = S.trains.find(t=>t.id===trainId);
+    if(t){
+        t.action = action;
+        t.stopTimer = 0;
+        t.delayTimer = 0;
+        const labels = {'pass':'不停靠','stop':'停靠','delay5':'5分钟后停','delay10':'10分钟后停'};
+        notify(`📋 列车#${String(trainId).padStart(3,'0')} → ${labels[action]||action}`,'info');
+    }
+};
 
-function onResize(){
-    const asp=window.innerWidth/window.innerHeight;
-    const vs=cDist*0.62;
-    cam.left=-vs*asp;cam.right=vs*asp;cam.top=vs;cam.bottom=-vs;
-    cam.updateProjectionMatrix()
-    renderer.setSize(window.innerWidth,window.innerHeight)
-}
-
-// ===== 控制函数 =====
-function setSpd(s){GS.SPD=s}
-function togPause(){GS.PAUSED=!GS.PAUSED;document.getElementById('pbtn').textContent=GS.PAUSED?'▶':'⏸'}
-
-function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
-
-// ===== 主循环 =====
-function loop(){
-    requestAnimationFrame(loop);
-    const dt=clock.getDelta();
+// ========== 事件处理 ==========
+function onMouseDown(e){
+    if(e.button===2){
+        S.draggingView=true;
+        S.dragStart={x:e.clientX,y:e.clientY};
+        return;
+    }
+    if(e.button!==0)return;
     
-    if(!GS.PAUSED){
-        GS.timeMin+=dt*60*GS.SPD;
-        while(GS.timeMin>=1440){GS.timeMin-=1440;GS.day++}
-        
-        updateTrains(dt);
-        const inc=calcIncome()*dt*GS.SPD/60;
-        GS.MONEY+=inc;
-        
-        if(Math.floor(GS.timeMin)%2===0)updUI()
+    const wp = screenToWorld(e.clientX,e.clientY);
+    
+    if(S.tool==='trk'){
+        startDrawTrack(wp);
+    }
+}
+
+function onMouseMove(e){
+    if(S.draggingView){
+        const dx=(e.clientX-S.dragStart.x)/S.zoom;
+        const dy=(e.clientY-S.dragStart.y)/S.zoom;
+        S.offsetX-=dx;S.offsetY-=dy;
+        S.dragStart={x:e.clientX,y:e.clientY};
+        return;
     }
     
-    renderer.render(scene,cam)
+    if(S.tool==='trk'&&S.drawing&&e.buttons===1){
+        const wp = screenToWorld(e.clientX,e.clientY);
+        moveDrawTrack(wp);
+    }
 }
 
-// ===== 启动 =====
-console.log('🚂 Railway Builder v1.0 - Starting...');
+function onMouseUp(e){
+    if(e.button===2){S.draggingView=false;return}
+    if(e.button!==0)return;
+    
+    if(S.tool==='trk'&&S.drawing){
+        const wp = screenToWorld(e.clientX,e.clientY);
+        endDrawTrack(wp);
+        return;
+    }
+    
+    if(S.tool==='plat'||S.tool==='del'){
+        const wp = screenToWorld(e.clientX,e.clientY);
+        if(wp.x<0||wp.x>C.MAP_W*C.GRID||wp.y<0||wp.y>C.MAP_H*C.GRID)return;
+        
+        if(S.tool==='plat')buildPlatform(wp.x,wp.y);
+        else if(S.tool==='del')deleteAt(wp.x,wp.y);
+    }
+}
+
+function onWheel(e){
+    e.preventDefault();
+    const factor = e.deltaY>0?0.92:1.08;
+    S.zoom = clamp(S.zoom*factor,0.3,3);
+}
+
+function onKeyDown(e){
+    const spd = 8/S.zoom;
+    switch(e.key.toLowerCase()){
+        case'w':S.offsetY-=spd;break;
+        case's':S.offsetY+=spd;break;
+        case'a':S.offsetX-=spd;break;
+        case'd':S.offsetX+=spd;break;
+        case' ':togPause();break;
+        case'1':setSpd(1);break;
+        case'2':setSpd(2);break;
+        case'3':setSpd(4);break;
+        case'escape':cancelDraw();break;
+        case'delete':case'backspace':cancelDraw();break;
+    }
+}
+
+// ========== 控制 ==========
+function setSpd(s){S.spd=s;document.querySelectorAll('.spd-btn').forEach((b,i)=>b.classList.toggle('active',i+1===s))}
+function togPause(){S.paused=!S.paused;document.getElementById('pbtn').textContent=S.paused?'▶ 继续':'⏸ 暂停'}
+function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+
+// ========== 主循环 ==========
+function gameLoop(timestamp){
+    requestAnimationFrame(gameLoop);
+    
+    const dt = Math.min((timestamp-lastTime)/1000,0.1)||0.016;
+    lastTime = timestamp;
+    
+    if(!S.paused){
+        S.timeMin += dt*60*S.spd;
+        while(S.timeMin>=1440){S.timeMin-=1440;S.day++}
+        
+        updateTrains(dt);
+        const inc = calcIncome()*dt*S.spd/60;
+        S.money += inc;
+        
+        if(Math.floor(S.timeMin)%2===0)updUI();
+    }
+    
+    draw();
+}
+
+// ========== 启动 ==========
+console.log('🚂 Railway Builder 2D v1.0');
 try{
-    initScene();
+    initCanvas();
     updUI();
-    loop();
-    console.log('✅ Ready! Tool:',GS.TOOL);
+    gameLoop(0);
+    console.log('✅ Ready!');
 }catch(e){
     console.error('❌ Error:',e);
-    document.body.innerHTML='<div style="padding:40px;color:#e74c3c;text-align:center;"><h1>⚠️ 加载出错</h1><pre>'+e.stack+'</pre><br><button onclick="location.reload()"style="padding:10px 20px;cursor:pointer;">🔄 重试</button></div>'
+    document.body.innerHTML=`<div style="padding:40px;color:#e74c3c;text-align:center;"><h1>⚠️ 加载出错</h1><pre>${e.stack}</pre><br><button onclick="location.reload()"style="padding:10px 20px;cursor:pointer;">🔄 重试</button></div>`;
 }
 
-// 全局暴露
 window.setTool=setTool;
 window.addTrain=addTrain;
 window.setSpd=setSpd;
